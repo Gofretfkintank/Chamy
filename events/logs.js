@@ -71,7 +71,7 @@ module.exports = (client) => {
     // 1. MESSAGE DELETED
     //--------------------------
     client.on('messageDelete', async (msg) => {
-        if (!msg.guild || msg.author?.bot) return;
+        if (!msg.guild || !msg.author || msg.author.bot) return;
 
         const entry = await getAuditEntry(msg.guild, AuditLogEvent.MessageDelete, msg.author.id);
         const deletedBy = entry ? `<@${entry.executor.id}> (${entry.executor.tag})` : 'Self or Unknown';
