@@ -414,8 +414,12 @@ client.on('interactionCreate', async interaction => {
 
         try {
             const member = await interaction.guild.members.fetch(interaction.user.id);
-            const isCommander = interaction.user.id === COMMANDER_ID;
-            const isCoOwner = member.roles.cache.has(CO_OWNER_ROLE_ID);
+            const isCommander = perms.isOwner(interaction.user.id);
+            // The co-owner role belongs to a server, not to the bot. A guild
+            // that never configured one simply has no co-owner tier, instead of
+            // borrowing a role id that means nothing outside OM.
+            const coOwnerRoleId = await cfg.get(interaction.guildId, 'staff:coOwnerRole');
+            const isCoOwner = !!coOwnerRoleId && member.roles.cache.has(coOwnerRoleId);
             const hasFullPower = isCommander || isCoOwner;
             const isStaff = member.permissions.has(PermissionsBitField.Flags.ManageMessages);
 
