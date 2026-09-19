@@ -1464,6 +1464,19 @@ module.exports = (client) => {
         const hasTypedMention = mentionRegex.test(raw);
         const hasHeyOmmy      = lower.startsWith('hey ommy');
 
+        // Wake / sleep, Commander only, per guild. Checked before anything else
+        // so it still works in a server where Ommy is currently asleep.
+        if ((hasTypedMention || hasHeyOmmy) && message.author.id === COMMANDER_ID) {
+            if (WAKE_PHRASE.test(raw)) {
+                await cfg.set(message.guildId, 'ommy:enabled', '1').catch(() => {});
+                return message.reply('☕ Awake in this server. Say `nighty night` to send me back to sleep.');
+            }
+            if (SLEEP_PHRASE.test(raw)) {
+                await cfg.set(message.guildId, 'ommy:enabled', '0').catch(() => {});
+                return message.reply('😴 Going quiet in this server. `wakey wakey` brings me back.');
+            }
+        }
+
         // Resolve the message this is replying to, if any — used both to
         // detect a genuine continuation of Ommy's own conversation, and to
         // pull in quoted context for explicit invocations (e.g. replying to
