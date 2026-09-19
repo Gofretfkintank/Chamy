@@ -108,7 +108,7 @@ module.exports = {
                     }).join('\n').slice(0, 1024)
                 });
             }
-            embed.setFooter({ text: `${Object.keys(cfg.KEYS).length - unset} set, ${unset} unset` });
+            embed.setFooter({ text: `${shownCount - unset} set, ${unset} unset` });
             return interaction.editReply({ embeds: [embed] });
         }
 
