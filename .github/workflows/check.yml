@@ -1,0 +1,62 @@
+# There is no local Node on the machine this bot is developed from: every change
+# goes repo -> Railway -> live, with the community as the first thing that runs
+# it. A syntax error therefore takes the bot down before anyone sees it.
+#
+# This costs about twenty seconds and catches that class of mistake on the
+# branch, before it ever reaches main.
+name: Check
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  syntax:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # Parse every file the bot ships. No dependencies needed, so this runs
+      # even when package-lock and node_modules are absent.
+      - name: Parse every JavaScript file
+        run: |
+          fail=0
+          while IFS= read -r f; do
+            if ! node --check "$f" 2>err.txt; then
+              echo "::error file=$f::$(head -n 3 err.txt | tr '\n' ' ')"
+              fail=1
+            fi
+          done < <(find . -name '*.js' -not -path './node_modules/*')
+          rm -f err.txt
+          exit $fail
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      # Requiring each command surfaces the errors --check cannot see: a missing
+      # module, a typo in a discord.js builder, a bad require path.
+      - name: Load every command and event
+        env:
+          NODE_ENV: test
+        run: |
+          node -e "
+            const fs = require('fs');
+            const path = require('path');
+            let failed = 0;
+            for (const dir of ['commands', 'events']) {
+              if (!fs.existsSync(dir)) continue;
+              for (const file of fs.readdirSync(dir).filter(f => f.endsWith('.js'))) {
+                const full = path.join(process.cwd(), dir, file);
+                try { require(full); }
+                catch (err) {
+                  console.error('::error file=' + dir + '/' + file + '::' + err.message);
+                  failed = 1;
+                }
+              }
+            }
+            process.exit(failed);
+          "
