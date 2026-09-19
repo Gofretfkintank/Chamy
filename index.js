@@ -405,7 +405,7 @@ client.on('interactionCreate', async interaction => {
 
     if (interaction.isChatInputCommand()) {
 
-        if (!allowedGuilds.includes(interaction.guildId)) {
+        if (!guildAllowed(interaction.guildId)) {
             return interaction.reply({ content: '❌ Access denied for this server.', ephemeral: true });
         }
 
