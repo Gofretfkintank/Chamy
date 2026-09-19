@@ -1499,6 +1499,11 @@ module.exports = (client) => {
         }
         if (!prompt) return;
 
+        // Asleep here: say nothing at all. A refusal message in a server that
+        // never asked for Ommy is itself noise, and it would fire on every
+        // mention of the bot.
+        if ((await cfg.get(message.guildId, 'ommy:enabled')) !== '1') return;
+
         // Reply to someone else's message (not Ommy's own) while explicitly
         // invoking Ommy — surface that message's content as context so Ommy
         // can act on it directly (translate it, explain it, summarize it...)
