@@ -150,15 +150,23 @@ client.once('ready', async () => {
         console.error('[MIGRATION] ❌ Hata:', err.message);
     }
 
-    try {
-        await client.application.commands.set([]);
+    // One-time: write the OM server's historical ids into its own config, so
+    // that moving those constants out of the source changes nothing there.
+    await seedLegacyGuild();
 
+    try {
         const data = client.commands.map(cmd => cmd.data.toJSON());
 
+        // Commands are GLOBAL now. Registering them per guild here, on every
+        // boot, is what kept the bot invisible in any server not on the list —
+        // and it silently undid whatever deploy-commands.js had registered
+        // globally. Guild-scoped copies from the old behaviour are cleared
+        // first, otherwise every command shows up twice in those servers.
         for (const guildId of allowedGuilds) {
-            await client.application.commands.set(data, guildId);
-            console.log(`✅ Commands deployed to: ${guildId}`);
+            await client.application.commands.set([], guildId).catch(() => {});
         }
+        await client.application.commands.set(data);
+        console.log(`✅ ${data.length} command(s) registered globally`);
 
         //--------------------------
         // MAINTENANCE SNAPSHOT CHECK
