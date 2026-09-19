@@ -83,9 +83,11 @@ module.exports = {
             const values = await cfg.all(interaction.guildId);
             const groups = {};
             for (const [key, def] of Object.entries(cfg.KEYS)) {
+                if (def.internal) continue;
                 const group = key.split(':')[0];
                 (groups[group] ||= []).push({ key, def, value: values[key] });
             }
+            const shownCount = Object.values(groups).reduce((n, rows) => n + rows.length, 0);
 
             const embed = new EmbedBuilder()
                 .setColor(0x5865f2)
