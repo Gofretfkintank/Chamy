@@ -58,10 +58,12 @@ module.exports = {
         else if (sub === 'set-role')    candidates = keysOfKind('role', false);
         else if (sub === 'add' || sub === 'remove') {
             candidates = Object.entries(cfg.KEYS)
-                .filter(([, def]) => def.list)
+                .filter(([, def]) => def.list && !def.internal)
                 .map(([key, def]) => ({ key, def }));
         } else {
-            candidates = Object.entries(cfg.KEYS).map(([key, def]) => ({ key, def }));
+            candidates = Object.entries(cfg.KEYS)
+                .filter(([, def]) => !def.internal)
+                .map(([key, def]) => ({ key, def }));
         }
 
         const shown = candidates
