@@ -30,6 +30,7 @@ const Maintenance         = require('../models/Maintenance');
 const Warn                = require('../models/Warn');
 const PendingRoleRestore  = require('../models/PendingRoleRestore');
 const { learnFromGuild, getKnowledgeContext } = require('../services/learner');
+const cfg                 = require('../lib/guildConfig');
 
 // ── Constants ─────────────────────────────────────────────────────────────
 const COMMANDER_ID         = '1097807544849809408';
@@ -37,6 +38,14 @@ const OWNER_ID             = '1310904811100569681';
 const CO_OWNER_ROLE_ID     = '1447144645489328199';
 const PADDOCK_CATEGORY_ID  = '1447142057385918546'; // general/daily channels
 const CACHE_TTL_MS         = 2 * 60 * 60 * 1000;   // 2 hours
+
+// Ommy carries OM League knowledge, OM moderation tools and an OM persona, so
+// it must not start talking the moment the bot joins somebody else's server.
+// It sleeps everywhere until the Commander wakes it in that specific guild.
+// Deliberately a hardcoded phrase and a hardcoded id rather than a /config
+// key: an admin of a random server should not be able to switch it on.
+const WAKE_PHRASE  = /\bwakey\s+wakey\b/i;
+const SLEEP_PHRASE = /\bnighty\s+night\b/i;
 
 // ── Gemini lazy init ───────────────────────────────────────────────────────
 let _genAI = null;
