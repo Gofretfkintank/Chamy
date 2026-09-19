@@ -37,6 +37,9 @@ const PrefixConfig = require('./models/PrefixConfig');
 const PendingRoleRestore = require('./models/PendingRoleRestore');
 const { onStartup: teamRadioStartup } = require('./commands/teamradio');
 const { checkExpiredInterviews }      = require('./commands/interview');
+const perms                           = require('./lib/perms');
+const cfg                             = require('./lib/guildConfig');
+const { seedLegacyGuild }             = require('./lib/legacySeed');
 
 //--------------------------
 // CLIENT
