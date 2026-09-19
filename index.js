@@ -694,7 +694,7 @@ client.on('prefixUpdate', (guildId) => {
 client.on('messageCreate', async message => {
     if (message.author.bot) return;
     if (!message.guild) return;
-    if (!allowedGuilds.includes(message.guildId)) return;
+    if (!guildAllowed(message.guildId)) return;
 
     const prefix = await getPrefix(message.guildId);
     if (!message.content.toLowerCase().startsWith(prefix.toLowerCase())) return;
