@@ -63,21 +63,22 @@ const client = new Client({
 });
 
 //--------------------------
-// VIP SYSTEM
+// GUILD ALLOWLIST (optional)
 //--------------------------
+// This was a hard whitelist: any guild not named in GUILD_ID_1..3 got
+// "Access denied for this server", so the bot was unusable everywhere else no
+// matter what else was configured. It is OPTIONAL now — an empty list means
+// the bot works in every server it is invited to. Set ALLOWED_GUILDS (or the
+// old GUILD_ID_* vars) only to deliberately restrict it again.
 
-const COMMANDER_ID = "1097807544849809408";
-const CO_OWNER_ROLE_ID = "1447144645489328199";
-
-//--------------------------
-// GUILD WHITELIST
-//--------------------------
-
-const allowedGuilds = [
+const allowedGuilds = String(process.env.ALLOWED_GUILDS || [
     process.env.GUILD_ID_1,
     process.env.GUILD_ID_2,
     process.env.GUILD_ID_3
-].filter(Boolean);
+].filter(Boolean).join(','))
+    .split(',').map(s => s.trim()).filter(Boolean);
+
+const guildAllowed = guildId => allowedGuilds.length === 0 || allowedGuilds.includes(guildId);
 
 //--------------------------
 // COMMAND LOAD
