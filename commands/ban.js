@@ -1,7 +1,5 @@
 const { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder } = require('discord.js');
-
-const COMMANDER_ID     = '1097807544849809408';
-const CO_OWNER_ROLE_ID = '1447144645489328199';
+const perms = require('../lib/perms');
 
 function ok(desc)  { return new EmbedBuilder().setColor(0x2ecc71).setDescription(desc); }
 function err(desc) { return new EmbedBuilder().setColor(0xe74c3c).setDescription(desc); }
@@ -42,12 +40,15 @@ module.exports = {
         const targetMember = await message.guild.members.fetch(id).catch(() => null);
         const targetUser   = targetMember?.user ?? await message.client.users.fetch(id).catch(() => null);
         if (!targetUser) return message.reply({ embeds: [err('❌ User not found.')] });
-        const hasFullPower = message.author.id === COMMANDER_ID || message.member.roles.cache.has(CO_OWNER_ROLE_ID);
+        // Was the bot owner's id plus one server's co-owner role, written in
+        // here directly. Both now come from perms: the owner is global, the
+        // co-owner role is whatever THIS guild configured.
+        const hasFullPower = await perms.hasFullPower(message.member);
         if (targetMember) {
             if (targetMember.roles.highest.position >= message.guild.members.me.roles.highest.position)
                 return message.reply({ embeds: [err('❌ I cannot ban this user due to role hierarchy.')] });
             if (targetMember.permissions.has(PermissionFlagsBits.ManageMessages) && !hasFullPower)
-                return message.reply({ embeds: [err('❌ Only VIPs (Commander/Co-Owner) can ban staff members!')] });
+                return message.reply({ embeds: [err('❌ Only the server owner or a configured co-owner can ban staff members.')] });
         }
         const reason = args.slice(1).join(' ') || 'No reason provided';
         try {
