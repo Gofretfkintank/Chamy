@@ -8,7 +8,7 @@ function err(desc) { return new EmbedBuilder().setColor(0xe74c3c).setDescription
 
 function keysOfKind(kind, list) {
     return Object.entries(cfg.KEYS)
-        .filter(([, def]) => def.kind === kind && !!def.list === list)
+        .filter(([, def]) => def.kind === kind && !!def.list === list && !def.internal)
         .map(([key, def]) => ({ key, def }));
 }
 
