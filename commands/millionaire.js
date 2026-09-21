@@ -168,7 +168,7 @@ async function askQuestion(interaction, msg, game) {
     collector.on('collect', async i => {
         // Walk away
         if (i.customId === 'mm_walkaway') {
-            if (i.user.id !== game.hostId && i.user.id !== '1097807544849809408') return i.reply({ content: '❌ Only host can walk away.', ephemeral: true });
+            if (!require('../lib/perms').canControlGame(i, game.hostId)) return i.reply({ content: '❌ Only host can walk away.', ephemeral: true });
             game.walkAway = true;
             collector.stop('walkaway');
             await i.deferUpdate();
