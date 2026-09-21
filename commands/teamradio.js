@@ -10,6 +10,8 @@ const {
 } = require('discord.js');
 
 const TeamRadio = require('../models/TeamRadio');
+const cfg = require('../lib/guildConfig');
+const { LEGACY_GUILD_ID } = require('../lib/legacySeed');
 
 //--------------------------------------------------
 // CONFIG
