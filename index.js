@@ -68,17 +68,26 @@ const client = new Client({
 // This was a hard whitelist: any guild not named in GUILD_ID_1..3 got
 // "Access denied for this server", so the bot was unusable everywhere else no
 // matter what else was configured. It is OPTIONAL now — an empty list means
-// the bot works in every server it is invited to. Set ALLOWED_GUILDS (or the
-// old GUILD_ID_* vars) only to deliberately restrict it again.
+// the bot works in every server it is invited to.
+//
+// Only ALLOWED_GUILDS restricts it. GUILD_ID_1..3 deliberately do NOT: they
+// are still set on the deployment from the whitelist days, and falling back
+// to them would keep the bot locked to those three servers — the exact thing
+// this change is meant to remove.
 
-const allowedGuilds = String(process.env.ALLOWED_GUILDS || [
-    process.env.GUILD_ID_1,
-    process.env.GUILD_ID_2,
-    process.env.GUILD_ID_3
-].filter(Boolean).join(','))
+const allowedGuilds = String(process.env.ALLOWED_GUILDS || '')
     .split(',').map(s => s.trim()).filter(Boolean);
 
 const guildAllowed = guildId => allowedGuilds.length === 0 || allowedGuilds.includes(guildId);
+
+// Where the old code registered guild-scoped command copies. Used only to
+// clear those once commands are global — otherwise each would show twice there.
+const legacyCommandGuilds = [...new Set([
+    process.env.GUILD_ID_1,
+    process.env.GUILD_ID_2,
+    process.env.GUILD_ID_3,
+    process.env.LEGACY_GUILD_ID || '1446960659072946218'
+].filter(Boolean))];
 
 //--------------------------
 // COMMAND LOAD
