@@ -126,10 +126,13 @@ module.exports = {
     async execute(interaction) {
         if (!interaction.channel) return;
 
-        // ── Permission check — Admin veya Mod rolleri ──────────────────────
+        // ── Permission check — Admin veya bu sunucunun mod rolleri ─────────
+        // The mod role ids used to be OM's, written in here. Each guild now
+        // lists its own with /config add key:staff:modRoles.
+        const modRoleIds = await require('../lib/guildConfig').getList(interaction.guildId, 'staff:modRoles');
         const hasAccess =
             interaction.member.permissions.has(PermissionFlagsBits.Administrator) ||
-            MOD_ROLE_IDS.some(id => interaction.member.roles.cache.has(id));
+            modRoleIds.some(id => interaction.member.roles.cache.has(id));
 
         if (!hasAccess) {
             return interaction.reply({
