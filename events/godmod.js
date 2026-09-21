@@ -1,23 +1,39 @@
 const Jail = require('../models/Jail');
+const perms = require('../lib/perms');
+const { LEGACY_GUILD_ID } = require('../lib/legacySeed');
+
+// GodMode: the bot operator can't be jailed, muted, timed out or banned.
+//
+// This ran in EVERY guild the bot was in. While the bot lived in one server
+// that was the operator's own protection in his own server. Now that the bot
+// can join any server, the same code would undo other servers' moderation:
+// an admin elsewhere bans the operator and the bot unbans him, they time him
+// out and the bot lifts it. That overrides a server's own decisions about its
+// own members, which is exactly what a bot invited into it must not do.
+//
+// So it is confined to the home guild, where it behaves exactly as before.
+// MOD_ROLE_ID is that guild's role and means nothing anywhere else.
 
 module.exports = (client) => {
 
-    const MY_ID = "1097807544849809408"; 
-    const MOD_ROLE_ID = "1447144301305008168"; 
+    const MOD_ROLE_ID = "1447144301305008168";
+
+    const isHome = guild => !!guild && guild.id === LEGACY_GUILD_ID;
 
     //--------------------------------
     // READY: Başlangıçta jail temizle ve rol ver
     //--------------------------------
     client.on('ready', async () => {
         try {
-            const guilds = client.guilds.cache;
-            
-            for (const [guildId, guild] of guilds) {
-                const member = await guild.members.fetch(MY_ID).catch(() => null);
+            const guild = client.guilds.cache.get(LEGACY_GUILD_ID);
+            if (!guild) return;
+
+            for (const ownerId of perms.OWNER_IDS) {
+                const member = await guild.members.fetch(ownerId).catch(() => null);
                 if (!member) continue;
 
                 // MongoDB'den hapis kaydı varsa rollerini geri ver
-                const dbJail = await Jail.findOne({ userId: MY_ID, guildId: guild.id });
+                const dbJail = await Jail.findOne({ userId: ownerId, guildId: guild.id });
                 if (dbJail) {
                     if (dbJail.roles && dbJail.roles.length > 0) {
                         await member.roles.add(dbJail.roles).catch(() => {});
@@ -40,7 +56,7 @@ module.exports = (client) => {
                 if (member.isCommunicationDisabled()) await member.timeout(null).catch(() => {});
             }
 
-            console.log("🟢 GodMode: Başlangıç temizlendi, koruma aktif.");
+            console.log("🟢 GodMode: Başlangıç temizlendi, koruma aktif (home guild only).");
         } catch (err) {
             console.error("GodMode Startup Error:", err);
         }
@@ -50,7 +66,7 @@ module.exports = (client) => {
     // LIVE PROTECTION
     //--------------------------------
     client.on('guildMemberUpdate', async (oldMember, newMember) => {
-        if (newMember.id !== MY_ID) return;
+        if (!isHome(newMember.guild) || !perms.isOwner(newMember.id)) return;
 
         // Jail rolü varsa sil
         const jailRole = newMember.guild.roles.cache.find(r => r.name.toLowerCase() === 'jail');
@@ -76,17 +92,16 @@ module.exports = (client) => {
     // ANTI-BAN
     //--------------------------------
     client.on('guildBanAdd', async (ban) => {
-        if (ban.user.id === MY_ID) {
-            await ban.guild.members.unban(MY_ID).catch(() => {});
-            console.log("🚨 GodMode: Ban iptal edildi!");
-        }
+        if (!isHome(ban.guild) || !perms.isOwner(ban.user.id)) return;
+        await ban.guild.members.unban(ban.user.id).catch(() => {});
+        console.log("🚨 GodMode: Ban iptal edildi!");
     });
 
     //--------------------------------
     // VOICE GUARD
     //--------------------------------
     client.on('voiceStateUpdate', async (oldState, newState) => {
-        if (newState.id !== MY_ID) return;
+        if (!isHome(newState.guild) || !perms.isOwner(newState.id)) return;
         if (newState.serverMute || newState.serverDeaf) {
             await newState.setMute(false).catch(() => {});
             await newState.setDeaf(false).catch(() => {});
