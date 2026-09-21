@@ -102,7 +102,7 @@ module.exports = {
         const sub = interaction.options.getSubcommand();
 
         if (sub === 'end') {
-            if (!interaction.member.permissions.has('ManageMessages') && interaction.user.id !== '1097807544849809408') {
+            if (!interaction.member.permissions.has('ManageMessages') && !require('../lib/perms').isOwner(interaction.user.id)) {
                 return interaction.reply({ content: '❌ No permission.', ephemeral: true });
             }
             if (!activeGames.has(interaction.guildId)) return interaction.reply({ content: '❌ No active game found.', ephemeral: true });
