@@ -19,8 +19,6 @@ const GP_REWARDS     = [25000, 18000, 15000, 12000, 10000, 8000, 6000, 4000, 200
 const SPRINT_REWARDS = [8000,  7000,  6000,  5000,  4000,  3000, 2000, 1000];
 const DNF_REWARD     = 0;
 
-const MOD_ROLE_IDS = ['1447143999902187580', '1447143381569376327'];
-
 function applyChaosModifier(baseRewards, count, modifier) {
     const slice = Array.from({ length: count }, (_, i) => baseRewards[i] ?? 0);
     switch (modifier.type) {
