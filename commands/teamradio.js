@@ -238,7 +238,7 @@ module.exports = {
         const channel = await guild.channels.create({
             name: `radio-${slugify(teamRole.name)}`,
             type: ChannelType.GuildText,
-            parent: CATEGORY_ID,
+            parent: categoryId,
             topic: `Team Radio | ${teamRole.name} | Opened by ${member.user.tag}`,
             permissionOverwrites: [
                 {
