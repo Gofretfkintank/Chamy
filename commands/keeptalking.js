@@ -187,7 +187,7 @@ module.exports = {
                 await i.reply({ content: '💣 You are the Defuser! You\'ll see the bomb modules. Experts will guide you.', ephemeral: true });
             }
             if (i.customId === 'kt_start') {
-                if (i.user.id !== game.hostId && i.user.id !== '1097807544849809408') return i.reply({ content: '❌ Only host can start.', ephemeral: true });
+                if (!require('../lib/perms').canControlGame(i, game.hostId)) return i.reply({ content: '❌ Only host can start.', ephemeral: true });
                 if (game.players.size < 2) return i.reply({ content: '❌ Need at least 2 players!', ephemeral: true });
                 if (!game.defuserId) return i.reply({ content: '❌ Nobody has volunteered to defuse! Press "I\'ll Defuse".', ephemeral: true });
                 lobbyCollector.stop('start');
