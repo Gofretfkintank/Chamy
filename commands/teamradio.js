@@ -298,7 +298,8 @@ module.exports = {
         const channel = interaction.channel;
         const guild   = interaction.guild;
 
-        if (channel.parentId !== CATEGORY_ID) return;
+        const categoryId = await cfg.get(interaction.guildId, 'categories:teamRadio');
+        if (!categoryId || channel.parentId !== categoryId) return;
 
         const record = await TeamRadio.findOne({ channelId: channel.id });
         if (!record) {
