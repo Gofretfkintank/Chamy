@@ -188,10 +188,28 @@ module.exports = {
     //--------------------------------------------------
 
     async execute(interaction) {
+        // Home server only. The team list is OM's teams, and a radio record is
+        // looked up by team NAME with no guild attached — in a second server, a
+        // role that happens to be called "BMW Racing" would find OM's open
+        // channel, fail to see it, and delete OM's record.
+        if (interaction.guildId !== LEGACY_GUILD_ID) {
+            return interaction.reply({
+                content: '❌ Team radio is only available in the OM server.',
+                ephemeral: true
+            });
+        }
+
         await interaction.deferReply({ ephemeral: true });
 
         const member = interaction.member;
         const guild  = interaction.guild;
+
+        const categoryId = await cfg.get(guild.id, 'categories:teamRadio');
+        if (!categoryId) {
+            return interaction.editReply({
+                content: '❌ No team radio category is set. An admin can set one with `/config set-channel key:categories:teamRadio`.'
+            });
+        }
 
         const teamRole = member.roles.cache.find(r => TEAMS.includes(r.name));
 
