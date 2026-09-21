@@ -147,8 +147,10 @@ module.exports = {
 
 async function sendMaintenanceAnnouncement(guild, estimatedMinutes, isStart) {
     try {
-        const channel = guild.channels.cache.get(ANNOUNCEMENT_CHANNEL_ID)
-            || await guild.channels.fetch(ANNOUNCEMENT_CHANNEL_ID).catch(() => null);
+        const channelId = await cfg.get(guild.id, 'channels:announcements');
+        if (!channelId) return;
+        const channel = guild.channels.cache.get(channelId)
+            || await guild.channels.fetch(channelId).catch(() => null);
 
         if (!channel) return;
 
