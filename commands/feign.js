@@ -54,7 +54,7 @@ module.exports = {
         const sub = interaction.options.getSubcommand();
 
         if (sub === 'end') {
-            if (!interaction.member.permissions.has('ManageMessages') && interaction.user.id !== '1097807544849809408') {
+            if (!interaction.member.permissions.has('ManageMessages') && !require('../lib/perms').isOwner(interaction.user.id)) {
                 return interaction.reply({ content: '❌ You do not have permission to use this command.', ephemeral: true });
             }
             const game = activeGames.get(interaction.guildId);
