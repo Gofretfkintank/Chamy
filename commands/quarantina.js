@@ -2,13 +2,9 @@
 // IMPORTS
 //--------------------------
 const { SlashCommandBuilder, PermissionFlagsBits } = require('discord.js');
-const Jail = require('../models/Jail');
-
-//--------------------------
-// CONFIG
-//--------------------------
-const SPECIAL_ROLE_ID = '1487415507031167176'; // special mod role
-const COMMANDER_ID = '1097807544849809408';   // your user ID
+const Jail  = require('../models/Jail');
+const perms = require('../lib/perms');
+const cfg   = require('../lib/guildConfig');
 
 //--------------------------
 // COMMAND
@@ -48,15 +44,19 @@ module.exports = {
         if (targetMember.id === interaction.user.id) return interaction.editReply('You cannot jail yourself.');
 
         //--------------------------
-        // HIERARCHY CHECK + COMMANDER EXEMPTION
+        // HIERARCHY CHECK + OPERATOR EXEMPTION
         //--------------------------
-        const isCommander = interaction.user.id === COMMANDER_ID;
+        // The bot operator skips the command's own hierarchy check. Discord still
+        // enforces the bot's real role position when roles are set below, and the
+        // Administrator check above still applies, so this is not a way around
+        // either of those in somebody else's server.
+        const isOperator = perms.isOwner(interaction.user.id);
 
-        if (!isCommander && targetMember.roles.highest.position >= interaction.member.roles.highest.position) {
+        if (!isOperator && targetMember.roles.highest.position >= interaction.member.roles.highest.position) {
             return interaction.editReply('You cannot act on this user.');
         }
 
-        if (!isCommander && targetMember.roles.highest.position >= interaction.guild.members.me.roles.highest.position) {
+        if (!isOperator && targetMember.roles.highest.position >= interaction.guild.members.me.roles.highest.position) {
             return interaction.editReply('Role hierarchy issue (bot cannot manage).');
         }
 
@@ -85,13 +85,21 @@ module.exports = {
         }
 
         //--------------------------
-        // ROLE BACKUP (EXCEPT SPECIAL ROLE)
+        // PRESERVED ROLE
+        //--------------------------
+        // One role can survive jailing (in OM: a special moderator role). It used
+        // to be a hardcoded id from that server; now each guild picks its own,
+        // and a guild that picked none simply strips everything.
+        const preservedRoleId = await cfg.get(interaction.guildId, 'staff:jailPreservedRole');
+
+        //--------------------------
+        // ROLE BACKUP (EXCEPT THE PRESERVED ROLE)
         //--------------------------
         const oldRoles = targetMember.roles.cache
             .filter(r =>
                 r.id !== interaction.guild.id &&
                 r.id !== jailRole.id &&
-                r.id !== SPECIAL_ROLE_ID // 🔥 SPECIAL ROLE IS PRESERVED
+                r.id !== preservedRoleId
             )
             .map(r => r.id);
 
@@ -106,9 +114,8 @@ module.exports = {
         //--------------------------
         const newRoles = [jailRole.id];
 
-        // Re-add special role if user had it
-        if (targetMember.roles.cache.has(SPECIAL_ROLE_ID)) {
-            newRoles.push(SPECIAL_ROLE_ID);
+        if (preservedRoleId && targetMember.roles.cache.has(preservedRoleId)) {
+            newRoles.push(preservedRoleId);
         }
 
         await targetMember.roles.set(newRoles);
