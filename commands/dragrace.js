@@ -96,7 +96,7 @@ module.exports = {
                 await i.update({ embeds: [lobbyEmbed()] });
             }
             if (i.customId === 'dr_start') {
-                if (i.user.id !== interaction.user.id && i.user.id !== '1097807544849809408') {
+                if (!require('../lib/perms').canControlGame(i, interaction.user.id)) {
                     return i.reply({ content: '❌ Only the host can start the race.', ephemeral: true });
                 }
                 if (game.racers.size < 2) return i.reply({ content: '❌ At least 2 racers required!', ephemeral: true });

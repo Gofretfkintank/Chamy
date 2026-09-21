@@ -1,11 +1,8 @@
 const { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder } = require('discord.js');
 const Maintenance = require('../models/Maintenance');
-
-//--------------------------
-// CONFIG
-//--------------------------
-
-const ANNOUNCEMENT_CHANNEL_ID = '1447146110689742951';
+const perms = require('../lib/perms');
+const cfg   = require('../lib/guildConfig');
+const { LEGACY_GUILD_ID } = require('../lib/legacySeed');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -25,12 +22,19 @@ module.exports = {
         // PERMISSION CHECK
         //--------------------------
 
+        // Maintenance mode is ONE switch for the whole bot: it locks commands in
+        // every server at once. "Administrator here" was enough while the bot
+        // lived in one server; open to any server, it would let any server's
+        // admin lock the bot for everybody. So it is the operator, plus the home
+        // server's admins, who always had it.
         const member = await interaction.guild.members.fetch(interaction.user.id);
-        const isStaff = member.permissions.has(PermissionFlagsBits.Administrator);
+        const isOperator  = perms.isOwner(interaction.user.id);
+        const isHomeAdmin = interaction.guildId === LEGACY_GUILD_ID &&
+            member.permissions.has(PermissionFlagsBits.Administrator);
 
-        if (!isStaff) {
+        if (!isOperator && !isHomeAdmin) {
             return interaction.reply({
-                content: '❌ Administrator permission is required to use this command.',
+                content: '❌ Maintenance mode affects the bot in every server, so only its operator can toggle it.',
                 ephemeral: true
             });
         }
@@ -143,8 +147,10 @@ module.exports = {
 
 async function sendMaintenanceAnnouncement(guild, estimatedMinutes, isStart) {
     try {
-        const channel = guild.channels.cache.get(ANNOUNCEMENT_CHANNEL_ID)
-            || await guild.channels.fetch(ANNOUNCEMENT_CHANNEL_ID).catch(() => null);
+        const channelId = await cfg.get(guild.id, 'channels:announcements');
+        if (!channelId) return;
+        const channel = guild.channels.cache.get(channelId)
+            || await guild.channels.fetch(channelId).catch(() => null);
 
         if (!channel) return;
 

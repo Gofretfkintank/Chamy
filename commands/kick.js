@@ -1,7 +1,5 @@
 const { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder } = require('discord.js');
-
-const COMMANDER_ID     = '1097807544849809408';
-const CO_OWNER_ROLE_ID = '1447144645489328199';
+const perms = require('../lib/perms');
 
 function ok(desc)  { return new EmbedBuilder().setColor(0x2ecc71).setDescription(desc); }
 function err(desc) { return new EmbedBuilder().setColor(0xe74c3c).setDescription(desc); }
@@ -37,9 +35,11 @@ module.exports = {
         if (!target.kickable) return message.reply({ embeds: [err('❌ I cannot kick this user.')] });
         if (target.roles.highest.position >= message.guild.members.me.roles.highest.position)
             return message.reply({ embeds: [err('❌ I cannot kick this user due to role hierarchy.')] });
-        const hasFullPower = message.author.id === COMMANDER_ID || message.member.roles.cache.has(CO_OWNER_ROLE_ID);
+        // Global bot owner, server owner, or this guild's configured co-owner
+        // role — previously one hardcoded user id and one hardcoded role id.
+        const hasFullPower = await perms.hasFullPower(message.member);
         if (target.permissions.has(PermissionFlagsBits.ManageMessages) && !hasFullPower)
-            return message.reply({ embeds: [err('❌ Only VIPs (Commander/Co-Owner) can kick staff members!')] });
+            return message.reply({ embeds: [err('❌ Only the server owner or a configured co-owner can kick staff members.')] });
         await target.kick();
         return message.reply({ embeds: [
             ok(`🔫 **${target.user.tag}** has been kicked from the server.`)

@@ -30,6 +30,7 @@ const Maintenance         = require('../models/Maintenance');
 const Warn                = require('../models/Warn');
 const PendingRoleRestore  = require('../models/PendingRoleRestore');
 const { learnFromGuild, getKnowledgeContext } = require('../services/learner');
+const cfg                 = require('../lib/guildConfig');
 
 // ── Constants ─────────────────────────────────────────────────────────────
 const COMMANDER_ID         = '1097807544849809408';
@@ -37,6 +38,14 @@ const OWNER_ID             = '1310904811100569681';
 const CO_OWNER_ROLE_ID     = '1447144645489328199';
 const PADDOCK_CATEGORY_ID  = '1447142057385918546'; // general/daily channels
 const CACHE_TTL_MS         = 2 * 60 * 60 * 1000;   // 2 hours
+
+// Ommy carries OM League knowledge, OM moderation tools and an OM persona, so
+// it must not start talking the moment the bot joins somebody else's server.
+// It sleeps everywhere until the Commander wakes it in that specific guild.
+// Deliberately a hardcoded phrase and a hardcoded id rather than a /config
+// key: an admin of a random server should not be able to switch it on.
+const WAKE_PHRASE  = /\bwakey\s+wakey\b/i;
+const SLEEP_PHRASE = /\bnighty\s+night\b/i;
 
 // ── Gemini lazy init ───────────────────────────────────────────────────────
 let _genAI = null;
@@ -1455,6 +1464,19 @@ module.exports = (client) => {
         const hasTypedMention = mentionRegex.test(raw);
         const hasHeyOmmy      = lower.startsWith('hey ommy');
 
+        // Wake / sleep, Commander only, per guild. Checked before anything else
+        // so it still works in a server where Ommy is currently asleep.
+        if ((hasTypedMention || hasHeyOmmy) && message.author.id === COMMANDER_ID) {
+            if (WAKE_PHRASE.test(raw)) {
+                await cfg.set(message.guildId, 'ommy:enabled', '1').catch(() => {});
+                return message.reply('☕ Awake in this server. Say `nighty night` to send me back to sleep.');
+            }
+            if (SLEEP_PHRASE.test(raw)) {
+                await cfg.set(message.guildId, 'ommy:enabled', '0').catch(() => {});
+                return message.reply('😴 Going quiet in this server. `wakey wakey` brings me back.');
+            }
+        }
+
         // Resolve the message this is replying to, if any — used both to
         // detect a genuine continuation of Ommy's own conversation, and to
         // pull in quoted context for explicit invocations (e.g. replying to
@@ -1476,6 +1498,11 @@ module.exports = (client) => {
             prompt = raw;
         }
         if (!prompt) return;
+
+        // Asleep here: say nothing at all. A refusal message in a server that
+        // never asked for Ommy is itself noise, and it would fire on every
+        // mention of the bot.
+        if ((await cfg.get(message.guildId, 'ommy:enabled')) !== '1') return;
 
         // Reply to someone else's message (not Ommy's own) while explicitly
         // invoking Ommy — surface that message's content as context so Ommy

@@ -13,9 +13,9 @@ module.exports = {
 
     async execute(interaction) {
         const { PermissionsBitField } = require('discord.js');
-        const COMMANDER_ID = process.env.COMMANDER_ID || '1097807544849809408';
-
-        const isCommander = interaction.user.id === COMMANDER_ID;
+        // perms reads OWNER_IDS / COMMANDER_ID, the same variable this file
+        // already honoured — one definition of "operator" instead of a copy here.
+        const isCommander = require('../lib/perms').isOwner(interaction.user.id);
         const isAdmin = interaction.member.permissions.has(PermissionsBitField.Flags.Administrator);
 
         if (!isCommander && !isAdmin) {

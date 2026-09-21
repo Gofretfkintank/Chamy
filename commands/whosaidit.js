@@ -105,7 +105,7 @@ module.exports = {
                 await i.update({ embeds: [lobbyEmbed()] });
             }
             if (i.customId === 'wsi_start') {
-                if (i.user.id !== interaction.user.id && i.user.id !== '1097807544849809408') {
+                if (!require('../lib/perms').canControlGame(i, interaction.user.id)) {
                     return i.reply({ content: '❌ Only the host can start the game.', ephemeral: true });
                 }
                 if (game.players.size < 2) return i.reply({ content: '❌ At least 2 players required!', ephemeral: true });

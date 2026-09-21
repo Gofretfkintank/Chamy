@@ -48,7 +48,7 @@ module.exports = {
         const sub = interaction.options.getSubcommand();
 
         if (sub === 'end') {
-            if (!interaction.member.permissions.has('ManageMessages') && interaction.user.id !== '1097807544849809408') {
+            if (!interaction.member.permissions.has('ManageMessages') && !require('../lib/perms').isOwner(interaction.user.id)) {
                 return interaction.reply({ content: '❌ No permission.', ephemeral: true });
             }
             activeGames.delete(interaction.guildId);
@@ -100,7 +100,7 @@ module.exports = {
                 await i.update({ embeds: [lobbyEmbed()] });
             }
             if (i.customId === 'jng_start') {
-                if (i.user.id !== game.hostId && i.user.id !== '1097807544849809408') return i.reply({ content: '❌ Only host can start.', ephemeral: true });
+                if (!require('../lib/perms').canControlGame(i, game.hostId)) return i.reply({ content: '❌ Only host can start.', ephemeral: true });
                 if (game.players.length < 2) return i.reply({ content: '❌ At least 2 players needed!', ephemeral: true });
                 lobbyCollector.stop('start');
                 await i.deferUpdate();

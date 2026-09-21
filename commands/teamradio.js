@@ -10,6 +10,8 @@ const {
 } = require('discord.js');
 
 const TeamRadio = require('../models/TeamRadio');
+const cfg = require('../lib/guildConfig');
+const { LEGACY_GUILD_ID } = require('../lib/legacySeed');
 
 //--------------------------------------------------
 // CONFIG
@@ -27,7 +29,7 @@ const TEAMS = [
     "Manthey Racing"
 ];
 
-const CATEGORY_ID = "1492527809971748934";
+// The category comes from the home guild's config (categories:teamRadio).
 const DELETE_AFTER_MS = 60 * 60 * 1000; // 1 saat
 
 //--------------------------------------------------
@@ -186,10 +188,28 @@ module.exports = {
     //--------------------------------------------------
 
     async execute(interaction) {
+        // Home server only. The team list is OM's teams, and a radio record is
+        // looked up by team NAME with no guild attached — in a second server, a
+        // role that happens to be called "BMW Racing" would find OM's open
+        // channel, fail to see it, and delete OM's record.
+        if (interaction.guildId !== LEGACY_GUILD_ID) {
+            return interaction.reply({
+                content: '❌ Team radio is only available in the OM server.',
+                ephemeral: true
+            });
+        }
+
         await interaction.deferReply({ ephemeral: true });
 
         const member = interaction.member;
         const guild  = interaction.guild;
+
+        const categoryId = await cfg.get(guild.id, 'categories:teamRadio');
+        if (!categoryId) {
+            return interaction.editReply({
+                content: '❌ No team radio category is set. An admin can set one with `/config set-channel key:categories:teamRadio`.'
+            });
+        }
 
         const teamRole = member.roles.cache.find(r => TEAMS.includes(r.name));
 
@@ -218,7 +238,7 @@ module.exports = {
         const channel = await guild.channels.create({
             name: `radio-${slugify(teamRole.name)}`,
             type: ChannelType.GuildText,
-            parent: CATEGORY_ID,
+            parent: categoryId,
             topic: `Team Radio | ${teamRole.name} | Opened by ${member.user.tag}`,
             permissionOverwrites: [
                 {
@@ -278,7 +298,8 @@ module.exports = {
         const channel = interaction.channel;
         const guild   = interaction.guild;
 
-        if (channel.parentId !== CATEGORY_ID) return;
+        const categoryId = await cfg.get(interaction.guildId, 'categories:teamRadio');
+        if (!categoryId || channel.parentId !== categoryId) return;
 
         const record = await TeamRadio.findOne({ channelId: channel.id });
         if (!record) {

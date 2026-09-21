@@ -54,7 +54,7 @@ module.exports = {
         const sub = interaction.options.getSubcommand();
 
         if (sub === 'end') {
-            if (!interaction.member.permissions.has('ManageMessages') && interaction.user.id !== '1097807544849809408') {
+            if (!interaction.member.permissions.has('ManageMessages') && !require('../lib/perms').isOwner(interaction.user.id)) {
                 return interaction.reply({ content: '❌ You do not have permission to use this command.', ephemeral: true });
             }
             const game = activeGames.get(interaction.guildId);
@@ -111,7 +111,7 @@ module.exports = {
                 await i.update({ embeds: [lobbyEmbed()] });
             }
             if (i.customId === 'feign_begin') {
-                if (i.user.id !== game.hostId && i.user.id !== '1097807544849809408') {
+                if (!require('../lib/perms').canControlGame(i, game.hostId)) {
                     return i.reply({ content: '❌ Only the host can start the game.', ephemeral: true });
                 }
                 if (game.players.size < 3) return i.reply({ content: '❌ At least 3 players required!', ephemeral: true });

@@ -37,6 +37,9 @@ const PrefixConfig = require('./models/PrefixConfig');
 const PendingRoleRestore = require('./models/PendingRoleRestore');
 const { onStartup: teamRadioStartup } = require('./commands/teamradio');
 const { checkExpiredInterviews }      = require('./commands/interview');
+const perms                           = require('./lib/perms');
+const cfg                             = require('./lib/guildConfig');
+const { seedLegacyGuild }             = require('./lib/legacySeed');
 
 //--------------------------
 // CLIENT
@@ -60,21 +63,31 @@ const client = new Client({
 });
 
 //--------------------------
-// VIP SYSTEM
+// GUILD ALLOWLIST (optional)
 //--------------------------
+// This was a hard whitelist: any guild not named in GUILD_ID_1..3 got
+// "Access denied for this server", so the bot was unusable everywhere else no
+// matter what else was configured. It is OPTIONAL now — an empty list means
+// the bot works in every server it is invited to.
+//
+// Only ALLOWED_GUILDS restricts it. GUILD_ID_1..3 deliberately do NOT: they
+// are still set on the deployment from the whitelist days, and falling back
+// to them would keep the bot locked to those three servers — the exact thing
+// this change is meant to remove.
 
-const COMMANDER_ID = "1097807544849809408";
-const CO_OWNER_ROLE_ID = "1447144645489328199";
+const allowedGuilds = String(process.env.ALLOWED_GUILDS || '')
+    .split(',').map(s => s.trim()).filter(Boolean);
 
-//--------------------------
-// GUILD WHITELIST
-//--------------------------
+const guildAllowed = guildId => allowedGuilds.length === 0 || allowedGuilds.includes(guildId);
 
-const allowedGuilds = [
+// Where the old code registered guild-scoped command copies. Used only to
+// clear those once commands are global — otherwise each would show twice there.
+const legacyCommandGuilds = [...new Set([
     process.env.GUILD_ID_1,
     process.env.GUILD_ID_2,
-    process.env.GUILD_ID_3
-].filter(Boolean);
+    process.env.GUILD_ID_3,
+    process.env.LEGACY_GUILD_ID || '1446960659072946218'
+].filter(Boolean))];
 
 //--------------------------
 // COMMAND LOAD
@@ -146,14 +159,25 @@ client.once('ready', async () => {
         console.error('[MIGRATION] ❌ Hata:', err.message);
     }
 
-    try {
-        await client.application.commands.set([]);
+    // One-time: write the OM server's historical ids into its own config, so
+    // that moving those constants out of the source changes nothing there.
+    await seedLegacyGuild();
 
+    try {
         const data = client.commands.map(cmd => cmd.data.toJSON());
 
-        for (const guildId of allowedGuilds) {
-            await client.application.commands.set(data, guildId);
-            console.log(`✅ Commands deployed to: ${guildId}`);
+        // Commands are GLOBAL now. Registering them per guild here, on every
+        // boot, is what kept the bot invisible in any server not on the list —
+        // and it silently undid whatever deploy-commands.js had registered
+        // globally.
+        //
+        // Global first, THEN clear the old guild-scoped copies. The other way
+        // round leaves the home server with no commands at all until the global
+        // set propagates; this order's worst case is a moment of duplicates.
+        await client.application.commands.set(data);
+        console.log(`✅ ${data.length} command(s) registered globally`);
+        for (const guildId of legacyCommandGuilds) {
+            await client.application.commands.set([], guildId).catch(() => {});
         }
 
         //--------------------------
@@ -393,7 +417,7 @@ client.on('interactionCreate', async interaction => {
 
     if (interaction.isChatInputCommand()) {
 
-        if (!allowedGuilds.includes(interaction.guildId)) {
+        if (!guildAllowed(interaction.guildId)) {
             return interaction.reply({ content: '❌ Access denied for this server.', ephemeral: true });
         }
 
@@ -402,8 +426,12 @@ client.on('interactionCreate', async interaction => {
 
         try {
             const member = await interaction.guild.members.fetch(interaction.user.id);
-            const isCommander = interaction.user.id === COMMANDER_ID;
-            const isCoOwner = member.roles.cache.has(CO_OWNER_ROLE_ID);
+            const isCommander = perms.isOwner(interaction.user.id);
+            // The co-owner role belongs to a server, not to the bot. A guild
+            // that never configured one simply has no co-owner tier, instead of
+            // borrowing a role id that means nothing outside OM.
+            const coOwnerRoleId = await cfg.get(interaction.guildId, 'staff:coOwnerRole');
+            const isCoOwner = !!coOwnerRoleId && member.roles.cache.has(coOwnerRoleId);
             const hasFullPower = isCommander || isCoOwner;
             const isStaff = member.permissions.has(PermissionsBitField.Flags.ManageMessages);
 
@@ -678,7 +706,7 @@ client.on('prefixUpdate', (guildId) => {
 client.on('messageCreate', async message => {
     if (message.author.bot) return;
     if (!message.guild) return;
-    if (!allowedGuilds.includes(message.guildId)) return;
+    if (!guildAllowed(message.guildId)) return;
 
     const prefix = await getPrefix(message.guildId);
     if (!message.content.toLowerCase().startsWith(prefix.toLowerCase())) return;

@@ -2,18 +2,18 @@
 // /mcturn
 // Toggles the Exaroton Minecraft server on or off.
 // Automatically fetches server ID from API.
-// Staff-only command.
 //--------------------------------
 
 const { SlashCommandBuilder, EmbedBuilder, PermissionsBitField } = require('discord.js');
 const axios = require('axios');
+const cfg = require('../lib/guildConfig');
+const { LEGACY_GUILD_ID } = require('../lib/legacySeed');
 
 //--------------------------------
 // CONFIG
 //--------------------------------
 const API     = 'https://api.exaroton.com/v1';
 const HEADERS = () => ({ Authorization: `Bearer ${process.env.EXAROTON_API_KEY}` });
-const MC_STATUS_CHANNEL = '1511995662865141810';
 
 const STATUS_LABEL = {
     0:  'Offline',
@@ -59,6 +59,16 @@ module.exports = {
 
     async execute(interaction) {
 
+        // This drives OM's own Exaroton server — OM's API key, OM's credits.
+        // With the bot open to any server, anyone anywhere could otherwise
+        // start or stop it.
+        if (interaction.guildId !== LEGACY_GUILD_ID) {
+            return interaction.reply({
+                content: '❌ This controls the OM Minecraft server and only works there.',
+                ephemeral: true
+            });
+        }
+
         await interaction.deferReply();
 
         // Fetch server list and grab first server
@@ -97,12 +107,14 @@ module.exports = {
             });
         }
 
+        const statusChannelId = await cfg.get(interaction.guildId, 'minecraft:statusChannel');
+
         // Success embed
         const embed = new EmbedBuilder()
             .setColor(turningOn ? 0x2ECC71 : 0xE74C3C)
             .setTitle(turningOn ? '🟢 Server Starting' : '🔴 Server Stopping')
             .setDescription(turningOn
-                ? `Booting up. Check <#${MC_STATUS_CHANNEL}> when ready.`
+                ? (statusChannelId ? `Booting up. Check <#${statusChannelId}> when ready.` : 'Booting up.')
                 : 'Server is shutting down.')
             .addFields(
                 { name: '🌐 Address',      value: `\`${address}\``,                          inline: true },

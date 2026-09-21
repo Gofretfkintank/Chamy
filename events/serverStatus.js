@@ -1,17 +1,16 @@
 //--------------------------------
 // SERVER STATUS EVENT
-// Listens in the test server channel where DiscordSRV
-// posts startup/shutdown messages, then sends a clean
-// embed to the OM server-status channel.
+// Listens in the channel where DiscordSRV posts startup/shutdown
+// messages, then sends a clean embed to the OM server-status channel.
+//
+// This is OM's own Minecraft server, so it stays tied to the home guild:
+// both ids are read from THAT guild's config (the source channel lives in a
+// separate test server, so message.guildId would be the wrong place to look).
 //--------------------------------
 
 const { EmbedBuilder } = require('discord.js');
-
-//--------------------------------
-// CONFIG
-//--------------------------------
-const SOURCE_CHANNEL_ID = '1512291789644628088'; // Test server (DiscordSRV posts here)
-const TARGET_CHANNEL_ID = '1511995662865141810'; // OM server-status channel
+const cfg = require('../lib/guildConfig');
+const { LEGACY_GUILD_ID } = require('../lib/legacySeed');
 
 //--------------------------------
 // MAIN EXPORT
@@ -19,15 +18,20 @@ const TARGET_CHANNEL_ID = '1511995662865141810'; // OM server-status channel
 module.exports = (client) => {
 
     client.on('messageCreate', async (message) => {
-        if (message.channel.id !== SOURCE_CHANNEL_ID) return;
+        // Cheap checks first, so the config lookup stays off ordinary messages.
         if (!message.author.bot) return;
         if (message.author.id === client.user.id) return;
+
+        const sourceId = await cfg.get(LEGACY_GUILD_ID, 'minecraft:statusSource');
+        if (!sourceId || message.channel.id !== sourceId) return;
 
         const isStart = message.content.includes('Server has started');
         const isStop  = message.content.includes('Server has stopped');
         if (!isStart && !isStop) return;
 
-        const targetChannel = await client.channels.fetch(TARGET_CHANNEL_ID).catch(() => null);
+        const targetId = await cfg.get(LEGACY_GUILD_ID, 'minecraft:statusChannel');
+        if (!targetId) return;
+        const targetChannel = await client.channels.fetch(targetId).catch(() => null);
         if (!targetChannel) return;
 
         const now = Math.floor(Date.now() / 1000);

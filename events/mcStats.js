@@ -5,15 +5,19 @@
 //
 // Tracks: status, player list, address, software,
 //         uptime, peak players, RAM, credits, Java.
+//
+// The Exaroton account is OM's, so the embed lives in the home guild; the
+// channel comes from that guild's config (minecraft:statsChannel).
 //--------------------------------
 
 const { EmbedBuilder } = require('discord.js');
 const axios            = require('axios');
+const cfg              = require('../lib/guildConfig');
+const { LEGACY_GUILD_ID, seedLegacyGuild } = require('../lib/legacySeed');
 
 //--------------------------------
 // CONFIG
 //--------------------------------
-const STATS_CHANNEL_ID = '1512863852176474132';
 const API              = 'https://api.exaroton.com/v1';
 const UPDATE_INTERVAL  = 5 * 60 * 1000; // 5 minutes
 
@@ -209,9 +213,17 @@ module.exports = (client) => {
 
     client.once('ready', async () => {
 
-        const channel = await client.channels.fetch(STATS_CHANNEL_ID).catch(() => null);
+        // This 'ready' fires before index.js seeds the home guild's config, so
+        // on the first boot after the migration it must wait for that or it
+        // would find no channel and never start the loop.
+        await seedLegacyGuild();
+
+        const statsChannelId = await cfg.get(LEGACY_GUILD_ID, 'minecraft:statsChannel');
+        const channel = statsChannelId
+            ? await client.channels.fetch(statsChannelId).catch(() => null)
+            : null;
         if (!channel) {
-            console.error('[mcStats] ❌ sv-stats channel not found — check STATS_CHANNEL_ID.');
+            console.error('[mcStats] ❌ No stats channel — set minecraft:statsChannel in the home guild with /config.');
             return;
         }
 

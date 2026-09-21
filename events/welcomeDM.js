@@ -19,7 +19,13 @@ function getGemini() {
 }
 
 module.exports = (client) => {
+    // The welcome text, links and art are all OM's, so this stays off in other
+    // servers. The home guild is always included: GUILD_ID_* doubled as the old
+    // command whitelist, and clearing them to open the bot up would otherwise
+    // quietly switch off OM's own welcome message too.
+    const { LEGACY_GUILD_ID } = require('../lib/legacySeed');
     const ALLOWED_GUILDS = [
+        LEGACY_GUILD_ID,
         process.env.GUILD_ID_1,
         process.env.GUILD_ID_2
     ].filter(Boolean);

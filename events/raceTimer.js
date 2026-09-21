@@ -2,18 +2,13 @@
 // IMPORTS
 //--------------------------------
 const RaceTimer = require('../models/RaceTimer');
+const cfg       = require('../lib/guildConfig');
 
 //--------------------------------
 // CONFIG
 //--------------------------------
-const allowedChannels = [
-    '1452925248973443072',
-    '1452925110037118986',
-    '1453103992514019499',
-    '1480929264693018734',
-    '1475519196367421503',
-    '1496136966067060777'
-];
+// Which channels the auto-detector watches is per server now
+// (channels:raceTimers in /config). It used to be six ids from OM.
 
 const raceKeywords = [
     'off-season','host','room code','track','server',
@@ -101,6 +96,9 @@ const raceTimerEvent = (client) => {
     //--------------------------------
     client.on('messageCreate', async (message) => {
         if (message.author.bot) return;
+        if (!message.guild) return;
+
+        const allowedChannels = await cfg.getList(message.guildId, 'channels:raceTimers');
         if (!allowedChannels.includes(message.channel.id)) return;
 
         // Fetch last 20 messages to find the race announcement

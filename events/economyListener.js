@@ -1,7 +1,7 @@
 // events/economyListener.js
 // OM-Bot Economy Listener
 // ─────────────────────────────────────────────────────────────────────────────
-// BOTS_CHANNEL  → Madcardex / Ballsdex / F1dex catch mesajlarını dinler
+// BOTS channel   → Madcardex / Ballsdex / F1dex catch mesajlarını dinler
 //   Bot mesaj formatları:
 //     Madcardex : "<@ID> You caught **ALFA ROMEO C41**! ..."
 //     Ballsdex  : "<@ID> You caught **Argentina**! ..."
@@ -9,16 +9,19 @@
 //   → Direkt o kullanıcıya +COINS_PER_CATCH coin
 //   → Anti-spam: aynı kullanıcı BOTS_COOLDOWN_MS içinde tekrar ödül alamaz
 //
-// LEVELS_CHANNEL → Arcane level-up mesajlarını dinler
+// LEVELS channel → Arcane level-up mesajlarını dinler
 //   Format: "<@ID> has reached lap **N**. Will he finish the race?"
 //   → Her yeni lap için +COINS_PER_LEVEL coin
+//
+// Both channels are per server now (channels:bots / channels:levels in
+// /config). They used to be two ids from the OM server.
+//
+// Note: wallets are global per USER, not per server — coins earned in one
+// server are spendable in every other. That was already true and is unchanged.
 // ─────────────────────────────────────────────────────────────────────────────
 
 const Economy = require('../models/Economy');
-
-// ── Kanal ID'leri ──────────────────────────────────────────────────────────
-const BOTS_CHANNEL_ID   = '1452733309724393664';
-const LEVELS_CHANNEL_ID = '1452948024299884670';
+const cfg     = require('../lib/guildConfig');
 
 // ── Ödül miktarları ────────────────────────────────────────────────────────
 const COINS_PER_CATCH = 250;  // 10x scaled  // Madcardex / Ballsdex / F1dex catch
@@ -35,7 +38,7 @@ const CATCH_REGEX = /<@(\d+)>\s+You\s+(?:caught|signed|collected)\s+\*\*(.+?)\*\
 // Arcane level-up
 const ARCANE_REGEX = /<@(\d+)> has reached lap \*\*(\d+)\*\*/i;
 
-// ─────────────────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────
 
 module.exports = function (client) {
 
@@ -43,8 +46,15 @@ module.exports = function (client) {
         if (!message.guild) return;
         if (!message.author.bot) return; // Sadece bot mesajlarını dinle
 
+        // Only bot messages reach this line, and the lookup is cached, so this
+        // stays cheap even in busy servers.
+        const [levelsChannelId, botsChannelId] = await Promise.all([
+            cfg.get(message.guildId, 'channels:levels'),
+            cfg.get(message.guildId, 'channels:bots')
+        ]);
+
         // ── LEVELS KANALI: Arcane level-up ──────────────────────────────────
-        if (message.channel.id === LEVELS_CHANNEL_ID) {
+        if (levelsChannelId && message.channel.id === levelsChannelId) {
             const match = message.content.match(ARCANE_REGEX);
             if (!match) return;
 
@@ -73,7 +83,7 @@ module.exports = function (client) {
         }
 
         // ── BOTS KANALI: Catch / Sign tespiti ───────────────────────────────
-        if (message.channel.id !== BOTS_CHANNEL_ID) return;
+        if (!botsChannelId || message.channel.id !== botsChannelId) return;
 
         const match = message.content.match(CATCH_REGEX);
         if (!match) return;

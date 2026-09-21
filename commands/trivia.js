@@ -121,7 +121,7 @@ module.exports = {
             if (i.customId === 'tv_red') { game.teams.blue.delete(i.user.id); game.teams.red.add(i.user.id); game.players.add(i.user.id); game.scores.set(i.user.id, 0); await i.update({ embeds: [lobbyEmbed()] }); }
             if (i.customId === 'tv_blue') { game.teams.red.delete(i.user.id); game.teams.blue.add(i.user.id); game.players.add(i.user.id); game.scores.set(i.user.id, 0); await i.update({ embeds: [lobbyEmbed()] }); }
             if (i.customId === 'tv_start') {
-                if (i.user.id !== interaction.user.id && i.user.id !== '1097807544849809408') return i.reply({ content: '❌ Only the host can start.', ephemeral: true });
+                if (!require('../lib/perms').canControlGame(i, interaction.user.id)) return i.reply({ content: '❌ Only the host can start.', ephemeral: true });
                 if (game.players.size < 1) return i.reply({ content: '❌ At least 1 player required!', ephemeral: true });
                 if (mode === 'team' && (game.teams.red.size < 1 || game.teams.blue.size < 1)) return i.reply({ content: '❌ Each team needs at least 1 player!', ephemeral: true });
                 lobbyCollector.stop('start');
