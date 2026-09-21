@@ -29,7 +29,7 @@ const TEAMS = [
     "Manthey Racing"
 ];
 
-const CATEGORY_ID = "1492527809971748934";
+// The category comes from the home guild's config (categories:teamRadio).
 const DELETE_AFTER_MS = 60 * 60 * 1000; // 1 saat
 
 //--------------------------------------------------
