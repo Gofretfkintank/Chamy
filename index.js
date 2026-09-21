@@ -171,7 +171,7 @@ client.once('ready', async () => {
         // and it silently undid whatever deploy-commands.js had registered
         // globally. Guild-scoped copies from the old behaviour are cleared
         // first, otherwise every command shows up twice in those servers.
-        for (const guildId of allowedGuilds) {
+        for (const guildId of legacyCommandGuilds) {
             await client.application.commands.set([], guildId).catch(() => {});
         }
         await client.application.commands.set(data);
