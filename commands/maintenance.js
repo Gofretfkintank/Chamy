@@ -1,11 +1,8 @@
 const { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder } = require('discord.js');
 const Maintenance = require('../models/Maintenance');
-
-//--------------------------
-// CONFIG
-//--------------------------
-
-const ANNOUNCEMENT_CHANNEL_ID = '1447146110689742951';
+const perms = require('../lib/perms');
+const cfg   = require('../lib/guildConfig');
+const { LEGACY_GUILD_ID } = require('../lib/legacySeed');
 
 module.exports = {
     data: new SlashCommandBuilder()
