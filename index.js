@@ -169,13 +169,16 @@ client.once('ready', async () => {
         // Commands are GLOBAL now. Registering them per guild here, on every
         // boot, is what kept the bot invisible in any server not on the list —
         // and it silently undid whatever deploy-commands.js had registered
-        // globally. Guild-scoped copies from the old behaviour are cleared
-        // first, otherwise every command shows up twice in those servers.
+        // globally.
+        //
+        // Global first, THEN clear the old guild-scoped copies. The other way
+        // round leaves the home server with no commands at all until the global
+        // set propagates; this order's worst case is a moment of duplicates.
+        await client.application.commands.set(data);
+        console.log(`✅ ${data.length} command(s) registered globally`);
         for (const guildId of legacyCommandGuilds) {
             await client.application.commands.set([], guildId).catch(() => {});
         }
-        await client.application.commands.set(data);
-        console.log(`✅ ${data.length} command(s) registered globally`);
 
         //--------------------------
         // MAINTENANCE SNAPSHOT CHECK
