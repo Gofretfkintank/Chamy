@@ -296,6 +296,6 @@ async function victory(interaction, msg, game) {
             `Players: ${[...game.players].map(id => `<@${id}>`).join(', ')}\n\n` +
             `*You are MILLIONAIRES!*`
         )
-        .setFooter({ text: 'Olzhasstik Motorsports — Game Night' });
+        .setFooter({ text: 'Game Night' });
     await msg.edit({ embeds: [embed], components: [] });
 }
