@@ -1545,7 +1545,7 @@ module.exports = (client) => {
             return message.reply("🔒 I'm locked by Gofret.");
         }
 
-        const role = detectRole(message);
+        const role = await detectRole(message);
 
         // Maintenance check
         if (role === 'member') {
