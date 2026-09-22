@@ -272,7 +272,7 @@ async function endGame(interaction, msg, game) {
             `🎉 **Winner: <@${winner[0]}>** — **${winner[1]} points**\n\n` +
             final.map(([id, pts], i) => `${['🥇','🥈','🥉'][i] || `${i+1}.`} <@${id}> — ${pts}pts`).join('\n')
         )
-        .setFooter({ text: 'Olzhasstik Motorsports — Game Night' });
+        .setFooter({ text: 'Game Night' });
 
     await msg.edit({ embeds: [finalEmbed], components: [] });
 }
