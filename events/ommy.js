@@ -1043,7 +1043,7 @@ async function executeTool(name, args, client, guildId, userPrompt, message) {
 
             const reason = `${args.reason || 'No reason provided'} (via Ommy, requested by ${message.author.tag})`;
             const muteCoOwnerRoleId = await cfg.get(guild.id, 'staff:coOwnerRole');
-            const hasFullPower = message.author.id === OWNER_ID || (!!muteCoOwnerRoleId && message.member.roles.cache.has(muteCoOwnerRoleId));
+            const hasFullPower = perms.isOwner(message.author.id) || (!!muteCoOwnerRoleId && message.member.roles.cache.has(muteCoOwnerRoleId));
 
             if (!target.moderatable && hasFullPower) {
                 if (target.id === guild.ownerId) return { error: 'invalid_target', message: 'Cannot moderate the server owner.' };
