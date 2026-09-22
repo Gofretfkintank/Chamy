@@ -166,17 +166,30 @@ client.once('ready', async () => {
     try {
         const data = client.commands.map(cmd => cmd.data.toJSON());
 
-        // Commands are GLOBAL now. Registering them per guild here, on every
-        // boot, is what kept the bot invisible in any server not on the list —
-        // and it silently undid whatever deploy-commands.js had registered
-        // globally.
-        //
+        // Commands are GLOBAL now, EXCEPT ones flagged homeOnly (see e.g.
+        // commands/mcturn.js) — those only ever work in OM's own server, so
+        // they are registered there alone. Otherwise every server's command
+        // picker would list /mcturn and /teamradio for no reason.
+        const globalCommands   = [];
+        const homeOnlyCommands = [];
+        for (const cmd of client.commands.values()) {
+            (cmd.homeOnly ? homeOnlyCommands : globalCommands).push(cmd.data.toJSON());
+        }
+
         // Global first, THEN clear the old guild-scoped copies. The other way
         // round leaves the home server with no commands at all until the global
         // set propagates; this order's worst case is a moment of duplicates.
-        await client.application.commands.set(data);
-        console.log(`✅ ${data.length} command(s) registered globally`);
+        await client.application.commands.set(globalCommands);
+        console.log(`✅ ${globalCommands.length} command(s) registered globally`);
+
+        if (homeOnlyCommands.length && LEGACY_GUILD_ID) {
+            await client.application.commands.set(homeOnlyCommands, LEGACY_GUILD_ID);
+            console.log(`🏠 ${homeOnlyCommands.length} home-only command(s) registered to ${LEGACY_GUILD_ID}`);
+        }
+
         for (const guildId of legacyCommandGuilds) {
+            // Never wipe the guild we just registered home-only commands to.
+            if (guildId === LEGACY_GUILD_ID && homeOnlyCommands.length) continue;
             await client.application.commands.set([], guildId).catch(() => {});
         }
 
