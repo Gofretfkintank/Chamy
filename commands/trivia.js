@@ -25,7 +25,7 @@ const QUESTIONS = [
     { q: 'What is McLaren\'s signature colour called?', options: ['Papaya Orange', 'Sunset Orange', 'Race Orange', 'Burnt Sienna'], a: 0, category: '🏭 Team' },
     { q: 'In which season was the fastest lap bonus point reintroduced?', options: ['2017', '2018', '2019', '2020'], a: 2, category: '🏁 F1 Tech' },
     { q: 'In which year was the first official F1 World Championship season held?', options: ['1948', '1950', '1952', '1955'], a: 1, category: '🏁 F1 Classic' },
-    { q: 'What is the name of the Olzhasstik Motorsports Discord bot?', options: ['RaceBot', 'OM-Bot', 'PitBot', 'F1Bot'], a: 1, category: '🔴 OM Special' },
+    { q: 'What does DRS stand for?', options: ['Drag Reduction System', 'Downforce Removal System', 'Dynamic Racing Suspension', 'Direct Response Steering'], a: 0, category: '🔴 F1 Rules' },
     { q: 'Which platform is OM Panel deployed on?', options: ['Heroku', 'Render', 'Railway', 'Vercel'], a: 2, category: '🔴 OM Special' },
     { q: 'What is the highest privilege level in OM called?', options: ['Admin', 'Moderator', 'Commander', 'Owner'], a: 2, category: '🔴 OM Special' },
     { q: 'What type of sim-racing does Olzhasstik Motorsports focus on?', options: ['Rally', 'Formula', 'NASCAR', 'MotoGP'], a: 1, category: '🔴 OM Special' },
