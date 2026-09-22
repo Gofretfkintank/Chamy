@@ -179,7 +179,7 @@ module.exports = {
                     `**Category:** ${game.category}\n\n` +
                     (topGuessers.length ? `**Top Contributors:**\n${topGuessers.join('\n')}` : '')
                 )
-                .setFooter({ text: 'Olzhasstik Motorsports — Game Night' });
+                .setFooter({ text: 'Game Night' });
 
             await msg.edit({ embeds: [finalEmbed] });
         });
