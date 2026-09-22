@@ -1131,7 +1131,7 @@ async function executeTool(name, args, client, guildId, userPrompt, message) {
             }
 
             try {
-                await target.kick(`${args.reason || 'No reason provided'} (via Ommy, requested by ${message.author.tag})`);
+                await target.kick(`${args.reason || 'No reason provided'} (via Chamy, requested by ${message.author.tag})`);
                 return { success: true, kicked: target.user.tag };
             } catch (err) {
                 return { error: 'kick_failed', message: err.message };
