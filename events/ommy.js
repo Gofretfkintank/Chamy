@@ -1284,7 +1284,7 @@ async function executeTool(name, args, client, guildId, userPrompt, message) {
             if (!logChannel) return { error: 'no_log_channel', message: 'Staff log channel not configured.' };
             try {
                 const embed = new EmbedBuilder()
-                    .setTitle('📩 New Report Received (via Ommy)')
+                    .setTitle('📩 New Report Received (via Chamy)')
                     .addFields(
                         { name: 'Reporter', value: message.author.tag, inline: true },
                         { name: 'Target',   value: target.user.tag,    inline: true },
