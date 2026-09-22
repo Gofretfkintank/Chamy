@@ -164,8 +164,6 @@ client.once('ready', async () => {
     await seedLegacyGuild();
 
     try {
-        const data = client.commands.map(cmd => cmd.data.toJSON());
-
         // Commands are GLOBAL now, EXCEPT ones flagged homeOnly (see e.g.
         // commands/mcturn.js) — those only ever work in OM's own server, so
         // they are registered there alone. Otherwise every server's command
