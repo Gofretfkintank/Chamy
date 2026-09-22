@@ -71,7 +71,10 @@ module.exports = {
     data: new SlashCommandBuilder()
         .setName('verify')
         .setDescription('Set up the server verification gate in this channel.')
-        .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
+        .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
+        .addRoleOption(o => o.setName('role')
+            .setDescription('Use this existing role instead of creating "Member" — e.g. a VSR role.')
+            .setRequired(false)),
 
     //--------------------------------------------------
     // EXECUTE
@@ -97,15 +100,22 @@ module.exports = {
             return interaction.editReply('❌ I need **Manage Roles** and **Manage Channels** permission to set this up.');
         }
 
-        // 1. Find or create the Member role
-        let memberRole = guild.roles.cache.find(r => r.name === MEMBER_ROLE_NAME);
+        // 1. Use the given role if one was passed; otherwise find or create the
+        //    default Member role, same as before.
+        const providedRole = interaction.options.getRole('role');
+        let memberRole = providedRole;
+        let roleWasCreated = false;
         if (!memberRole) {
-            memberRole = await guild.roles.create({
-                name: MEMBER_ROLE_NAME,
-                color: MEMBER_ROLE_COLOR,
-                hoist: true,
-                reason: 'OM Verify system setup'
-            });
+            memberRole = guild.roles.cache.find(r => r.name === MEMBER_ROLE_NAME);
+            if (!memberRole) {
+                memberRole = await guild.roles.create({
+                    name: MEMBER_ROLE_NAME,
+                    color: MEMBER_ROLE_COLOR,
+                    hoist: true,
+                    reason: 'OM Verify system setup'
+                });
+                roleWasCreated = true;
+            }
         }
 
         if (memberRole.position >= me.roles.highest.position) {
@@ -156,7 +166,7 @@ module.exports = {
         // 6. Confirm to the admin
         return interaction.editReply(
             `✅ Verification gate live in ${gateChannel}.\n\n` +
-            `**Role:** ${memberRole} (baby blue, hoisted)\n` +
+            `**Role:** ${memberRole}${roleWasCreated ? ' (created, baby blue, hoisted)' : ' (existing role)'}\n` +
             `🔒 **${locked}** channel(s) hidden from @everyone\n` +
             `⏭️ **${skipped}** channel(s) already private — left untouched\n` +
             (failed ? `⚠️ **${failed}** channel(s) failed — check my permissions there.\n` : '') +
