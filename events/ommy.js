@@ -996,9 +996,10 @@ async function executeTool(name, args, client, guildId, userPrompt, message) {
             const target = await resolveTargetMember(guild, args.target || '');
             if (!target) return { error: 'not_found', message: `Could not find a member matching "${args.target}".` };
             if (target.id === message.author.id) return { error: 'invalid_target', message: 'You cannot ban yourself.' };
-            if (target.id === COMMANDER_ID)       return { error: 'invalid_target', message: 'Cannot ban the Commander.' };
+            if (perms.isOwner(target.id))         return { error: 'invalid_target', message: 'Cannot ban the bot operator.' };
 
-            const hasFullPower = message.author.id === OWNER_ID || message.member.roles.cache.has(CO_OWNER_ROLE_ID);
+            const banCoOwnerRoleId = await cfg.get(guild.id, 'staff:coOwnerRole');
+            const hasFullPower = message.author.id === OWNER_ID || (!!banCoOwnerRoleId && message.member.roles.cache.has(banCoOwnerRoleId));
 
             if (!target.bannable && hasFullPower) {
                 if (target.id === guild.ownerId) return { error: 'invalid_target', message: 'Cannot ban the server owner.' };
