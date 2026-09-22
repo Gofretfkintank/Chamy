@@ -1480,7 +1480,7 @@ module.exports = (client) => {
         // the raw content avoids that false positive.
         const mentionRegex    = new RegExp(`<@!?${client.user.id}>`);
         const hasTypedMention = mentionRegex.test(raw);
-        const hasHeyOmmy      = lower.startsWith('hey ommy');
+        const hasHeyOmmy      = lower.startsWith('hey ommy') || lower.startsWith('hey chamy');
 
         // Wake / sleep, Commander only, per guild. Checked before anything else
         // so it still works in a server where Ommy is currently asleep.
