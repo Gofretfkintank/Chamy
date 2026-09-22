@@ -1,21 +1,25 @@
 // events/ommy.js
 // ─────────────────────────────────────────────────────────────────────────────
-// Ommy AI — Full Gemini 3.5 Flash Architecture
+// Chamy AI — Full Gemini 3.5 Flash Architecture
+// (File and internal names still say "Ommy" — that was the old identity for
+// OM League. The persona, replies and audit-log text now say Chamy, Mad+'s
+// mascot; the Discord account itself is already named Chamy. Renaming the
+// file/model/variables is a separate, larger change, not done here.)
 //
 // • Tool calling    — DB queries, channel image vision, server scanning
-// • Personality     — Ommy character, racing tone, user-aware tone matching
+// • Personality     — Chamy character, racing tone, user-aware tone matching
 // • Nick learning   — scans how others address a person in chat
 // • Behavior profiling — scans Paddock category to understand each member
 // • Active learning — ChannelCache: channel content cached in MongoDB,
 //                     reused on next query (2h TTL), avoids redundant API calls
 // • Category-aware image search — when looking for standings images,
 //                     scans all channels in the matching category
-// • Other leagues   — "I only have OM League data"
+// • Other leagues   — "I only have OM League data" (home guild only)
 // • General motorsport/F1 — Gemini's built-in knowledge
 //
 // Triggers:
-//   1. "hey ommy <question>"
-//   2. "@OM-Bot <question>"
+//   1. "hey ommy <question>" or "hey chamy <question>"
+//   2. "@<bot> <question>"
 // ─────────────────────────────────────────────────────────────────────────────
 
 const { PermissionsBitField, ChannelType, EmbedBuilder } = require('discord.js');
