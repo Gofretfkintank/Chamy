@@ -272,7 +272,7 @@ async function walkAway(interaction, msg, game) {
         .setColor(0xf5c518)
         .setTitle('🚪 Team Walked Away!')
         .setDescription(`The team walked away with **£${game.prize.toLocaleString()}**!\n\n*Sometimes the smart play is knowing when to stop.*`)
-        .setFooter({ text: 'Olzhasstik Motorsports — Game Night' });
+        .setFooter({ text: 'Game Night' });
     await msg.edit({ embeds: [embed], components: [] });
 }
 
