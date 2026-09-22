@@ -47,6 +47,43 @@ const { LEGACY_GUILD_ID }   = require('../lib/legacySeed');
 // Commander is, not carry a standing bypass for anyone else.
 const CACHE_TTL_MS          = 2 * 60 * 60 * 1000;   // 2 hours
 
+// Default qualifying-to-race time reduction table (centiseconds), the same
+// numbers Aether ships with. A guild that never configures its own gets
+// these; positions past P10 always get 0.
+const DEFAULT_QUALIFYING_REDUCTIONS_CS = {
+    1: 20, 2: 18, 3: 16, 4: 14, 5: 12,
+    6: 10, 7: 8, 8: 6, 9: 4, 10: 2,
+};
+
+async function getQualifyingReductionCs(guildId, position) {
+    const pos = Math.trunc(position);
+    if (pos < 1 || pos > 10) return 0;
+    const config = await RacingConfig.findOne({ guildId }).lean().catch(() => null);
+    const stored = config?.qualifyingReductionsCs?.[String(pos)];
+    return typeof stored === 'number' ? stored : (DEFAULT_QUALIFYING_REDUCTIONS_CS[pos] || 0);
+}
+
+async function getFullReductionTable(guildId) {
+    const config = await RacingConfig.findOne({ guildId }).lean().catch(() => null);
+    const table = {};
+    for (let pos = 1; pos <= 10; pos++) {
+        const stored = config?.qualifyingReductionsCs?.[String(pos)];
+        table[pos] = typeof stored === 'number' ? stored : DEFAULT_QUALIFYING_REDUCTIONS_CS[pos];
+    }
+    return table;
+}
+
+function csToSeconds(cs) {
+    return (cs / 100).toFixed(2) + 's';
+}
+
+const SANCTION_CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no 0/O/1/I
+function generateSanctionCode() {
+    let code = '';
+    for (let i = 0; i < 4; i++) code += SANCTION_CODE_ALPHABET[Math.floor(Math.random() * SANCTION_CODE_ALPHABET.length)];
+    return code;
+}
+
 // Chamy carries OM League knowledge, OM moderation tools and OM history in
 // the home guild, so it must not start talking the moment the bot joins
 // somebody else's server. It sleeps everywhere until the Commander wakes it
