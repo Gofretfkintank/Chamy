@@ -1358,7 +1358,7 @@ function toGeminiHistory(history) {
 // ══════════════════════════════════════════════════════════════════════════
 
 // The identity line and the OM-specific facts block below only apply in OM's
-// own server. Elsewhere Ommy is a generic assistant with no claim to being
+// own server. Elsewhere Chamy is a generic assistant with no claim to being
 // OM's mascot and no OM facts to hand out — those would be wrong information
 // in an unrelated community's server.
 function ommySystemPromptBase(isHomeGuild) {
