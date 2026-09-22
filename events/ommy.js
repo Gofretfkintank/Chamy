@@ -981,6 +981,78 @@ const MOD_TOOL_DECLARATIONS = [
     }
 ];
 
+// Racing tools — offered to admins/commander, same tier as moderation. These
+// have nothing to do with Discord permissions; they read/write this guild's
+// own sporting-penalty records, not anyone's account or role.
+const RACING_TOOL_DECLARATIONS = [
+    {
+        name:        'get_qualifying_reduction',
+        description: 'Look up the qualifying-to-race time reduction for a finishing position in THIS server\'s league, in centiseconds and seconds. Only P1-P10 get a reduction; anything else is 0. Use when asked "what\'s the reduction for P5" or when working out an adjusted race time from a qualifying position.',
+        parameters: {
+            type: 'object',
+            properties: {
+                position: { type: 'integer', description: 'Qualifying finishing position (1-10+).' }
+            },
+            required: ['position']
+        }
+    },
+    {
+        name:        'set_qualifying_reduction',
+        description: "Set this server's own qualifying-to-race time reduction for one finishing position (P1-P10), in centiseconds. Only ever offered to admins/commander. Use 0 to remove a reduction for that position.",
+        parameters: {
+            type: 'object',
+            properties: {
+                position:     { type: 'integer', description: 'Qualifying position to configure (1-10).' },
+                centiseconds: { type: 'integer', description: 'Reduction in centiseconds (100 = 1 second). 20 = 0.20s, matching the P1 default.' }
+            },
+            required: ['position', 'centiseconds']
+        }
+    },
+    {
+        name:        'list_qualifying_reductions',
+        description: "Show this server's full P1-P10 qualifying reduction table.",
+        parameters:  { type: 'object', properties: {} }
+    },
+    {
+        name:        'issue_penalty',
+        description: 'Record a sporting penalty (sanction) against a driver: a TIME penalty (added seconds) or a DSQ (disqualification, no time value). Only ever offered to admins/commander. Returns a short sanction code the driver/staff can reference later.',
+        parameters: {
+            type: 'object',
+            properties: {
+                target:           { type: 'string',  description: 'The driver being penalized — Discord username, display name, mention, or ID.' },
+                type:             { type: 'string',  description: '"TIME" or "DSQ".', enum: ['TIME', 'DSQ'] },
+                penalty_seconds:  { type: 'number',  description: 'Penalty in seconds (e.g. 5 or 10.5). Required for TIME, ignored for DSQ.' },
+                reason:           { type: 'string',  description: 'Reason for the penalty.' },
+                context:          { type: 'string',  description: 'Optional: round number, session, or track this applies to, e.g. "Round 4, Race".' },
+                expiration_days:  { type: 'integer', description: 'How many days the sanction stays active before it is considered history (default 1).' }
+            },
+            required: ['target', 'type', 'reason']
+        }
+    },
+    {
+        name:        'get_penalties',
+        description: "Look up a driver's sanction history in this server (active and past).",
+        parameters: {
+            type: 'object',
+            properties: {
+                target: { type: 'string', description: 'The driver to check — Discord username, display name, mention, or ID.' }
+            },
+            required: ['target']
+        }
+    },
+    {
+        name:        'remove_penalty',
+        description: 'Remove/void a previously issued sanction by its code. Only ever offered to admins/commander.',
+        parameters: {
+            type: 'object',
+            properties: {
+                sanction_code: { type: 'string', description: 'The 4-character sanction code, e.g. "K7QM".' }
+            },
+            required: ['sanction_code']
+        }
+    }
+];
+
 // Commander-only tools — sadece Gofret'e sunulur
 const COMMANDER_TOOL_DECLARATIONS = [
     {
