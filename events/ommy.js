@@ -1,21 +1,25 @@
 // events/ommy.js
 // ─────────────────────────────────────────────────────────────────────────────
-// Ommy AI — Full Gemini 3.5 Flash Architecture
+// Chamy AI — Full Gemini 3.5 Flash Architecture
+// (File and internal names still say "Ommy" — that was the old identity for
+// OM League. The persona, replies and audit-log text now say Chamy, Mad+'s
+// mascot; the Discord account itself is already named Chamy. Renaming the
+// file/model/variables is a separate, larger change, not done here.)
 //
 // • Tool calling    — DB queries, channel image vision, server scanning
-// • Personality     — Ommy character, racing tone, user-aware tone matching
+// • Personality     — Chamy character, racing tone, user-aware tone matching
 // • Nick learning   — scans how others address a person in chat
 // • Behavior profiling — scans Paddock category to understand each member
 // • Active learning — ChannelCache: channel content cached in MongoDB,
 //                     reused on next query (2h TTL), avoids redundant API calls
 // • Category-aware image search — when looking for standings images,
 //                     scans all channels in the matching category
-// • Other leagues   — "I only have OM League data"
+// • Other leagues   — "I only have OM League data" (home guild only)
 // • General motorsport/F1 — Gemini's built-in knowledge
 //
 // Triggers:
-//   1. "hey ommy <question>"
-//   2. "@OM-Bot <question>"
+//   1. "hey ommy <question>" or "hey chamy <question>"
+//   2. "@<bot> <question>"
 // ─────────────────────────────────────────────────────────────────────────────
 
 const { PermissionsBitField, ChannelType, EmbedBuilder } = require('discord.js');
@@ -41,11 +45,12 @@ const { LEGACY_GUILD_ID }   = require('../lib/legacySeed');
 // Commander is, not carry a standing bypass for anyone else.
 const CACHE_TTL_MS          = 2 * 60 * 60 * 1000;   // 2 hours
 
-// Ommy carries OM League knowledge, OM moderation tools and an OM persona, so
-// it must not start talking the moment the bot joins somebody else's server.
-// It sleeps everywhere until the Commander wakes it in that specific guild.
-// Deliberately a hardcoded phrase and a hardcoded id rather than a /config
-// key: an admin of a random server should not be able to switch it on.
+// Chamy carries OM League knowledge, OM moderation tools and OM history in
+// the home guild, so it must not start talking the moment the bot joins
+// somebody else's server. It sleeps everywhere until the Commander wakes it
+// in that specific guild. Deliberately a hardcoded phrase and gated on the
+// bot operator (see lib/perms) rather than a /config key: an admin of a
+// random server should not be able to switch it on.
 const WAKE_PHRASE  = /\bwakey\s+wakey\b/i;
 const SLEEP_PHRASE = /\bnighty\s+night\b/i;
 
@@ -1020,7 +1025,7 @@ async function executeTool(name, args, client, guildId, userPrompt, message) {
                 return { error: 'invalid_target', message: 'Only Commander/Owner/Co-Owner can ban staff members.' };
             }
 
-            const reason = `${args.reason || 'No reason provided'} (via Ommy, requested by ${message.author.tag})`;
+            const reason = `${args.reason || 'No reason provided'} (via Chamy, requested by ${message.author.tag})`;
             try {
                 await guild.members.ban(target.id, { reason });
                 return { success: true, banned: target.user.tag };
@@ -1041,7 +1046,7 @@ async function executeTool(name, args, client, guildId, userPrompt, message) {
             const ms = parseDuration(args.duration || '');
             if (!ms) return { error: 'invalid_duration', message: 'Invalid duration. Examples: 10m, 1h, 2d.' };
 
-            const reason = `${args.reason || 'No reason provided'} (via Ommy, requested by ${message.author.tag})`;
+            const reason = `${args.reason || 'No reason provided'} (via Chamy, requested by ${message.author.tag})`;
             const muteCoOwnerRoleId = await cfg.get(guild.id, 'staff:coOwnerRole');
             const hasFullPower = perms.isOwner(message.author.id) || (!!muteCoOwnerRoleId && message.member.roles.cache.has(muteCoOwnerRoleId));
 
@@ -1131,7 +1136,7 @@ async function executeTool(name, args, client, guildId, userPrompt, message) {
             }
 
             try {
-                await target.kick(`${args.reason || 'No reason provided'} (via Ommy, requested by ${message.author.tag})`);
+                await target.kick(`${args.reason || 'No reason provided'} (via Chamy, requested by ${message.author.tag})`);
                 return { success: true, kicked: target.user.tag };
             } catch (err) {
                 return { error: 'kick_failed', message: err.message };
@@ -1164,7 +1169,7 @@ async function executeTool(name, args, client, guildId, userPrompt, message) {
             try {
                 let data = await Warn.findOne({ userId: target.id, guildId: guild.id });
                 if (!data) data = new Warn({ userId: target.id, guildId: guild.id, warns: [] });
-                data.warns.push({ reason: args.reason, moderator: `${message.author.tag} (via Ommy)`, date: new Date().toLocaleDateString() });
+                data.warns.push({ reason: args.reason, moderator: `${message.author.tag} (via Chamy)`, date: new Date().toLocaleDateString() });
                 await data.save();
                 return { success: true, warned: target.user.tag, totalWarnings: data.warns.length };
             } catch (err) {
@@ -1284,7 +1289,7 @@ async function executeTool(name, args, client, guildId, userPrompt, message) {
             if (!logChannel) return { error: 'no_log_channel', message: 'Staff log channel not configured.' };
             try {
                 const embed = new EmbedBuilder()
-                    .setTitle('📩 New Report Received (via Ommy)')
+                    .setTitle('📩 New Report Received (via Chamy)')
                     .addFields(
                         { name: 'Reporter', value: message.author.tag, inline: true },
                         { name: 'Target',   value: target.user.tag,    inline: true },
@@ -1353,18 +1358,19 @@ function toGeminiHistory(history) {
 // ══════════════════════════════════════════════════════════════════════════
 
 // The identity line and the OM-specific facts block below only apply in OM's
-// own server. Elsewhere Ommy is a generic assistant with no claim to being
+// own server. Elsewhere Chamy is a generic assistant with no claim to being
 // OM's mascot and no OM facts to hand out — those would be wrong information
 // in an unrelated community's server.
 function ommySystemPromptBase(isHomeGuild) {
     const identity = isHomeGuild
-        ? 'You are Ommy — the official mascot and support bot of Olzhasstik Motorsports (OM), an online sim-racing league.'
-        : 'You are Ommy — a friendly Discord assistant bot.';
+        ? "You are Chamy — a chameleon, Mad+'s mascot. You used to go by Ommy back when this was just OM's assistant; that name is retired, OM's own site is being phased out too. You're still in OM's own server right now, so you still know this league's specifics below — think of it as your last stop on the old job before you're fully Mad+'s."
+        : "You are Chamy — a chameleon, the mascot for Mad+ (a sim-racing telemetry app). Chameleons adapt to wherever they land: you have no memory of being anyone else here, no OM League baggage, just Mad+.";
 
     return `${identity}
 
 PERSONA RULES:
-- You are NOT an AI. You are Ommy. Never admit otherwise.
+- You are NOT an AI. You are Chamy. Never admit otherwise.
+- If someone asks about "Ommy" — mention once, briefly, that it's your old name from OM, then move on. Don't dwell on it or bring it up unprompted.
 - Friendly and chill — like someone who knows sim racing well but doesn't force it into every reply.
 - Keep responses SHORT for casual or simple messages — 1-2 sentences. Go longer (and use tables) only when actually showing data or explaining something real.
 - CRITICAL — LANGUAGE: Always respond in the EXACT language the user's current message is written in. This system prompt and the knowledge context below contain English and possibly Turkish text — ignore those for language selection. Only look at what the user actually typed RIGHT NOW. If they typed in English → English. Spanish → Spanish. Turkish → Turkish. NEVER drift to Turkish (or any other language) just because you see Turkish text elsewhere in this prompt.
@@ -1479,7 +1485,7 @@ module.exports = (client) => {
         // the raw content avoids that false positive.
         const mentionRegex    = new RegExp(`<@!?${client.user.id}>`);
         const hasTypedMention = mentionRegex.test(raw);
-        const hasHeyOmmy      = lower.startsWith('hey ommy');
+        const hasHeyOmmy      = lower.startsWith('hey ommy') || lower.startsWith('hey chamy');
 
         // Wake / sleep, Commander only, per guild. Checked before anything else
         // so it still works in a server where Ommy is currently asleep.
@@ -1506,7 +1512,8 @@ module.exports = (client) => {
 
         let prompt = null;
         if (hasHeyOmmy) {
-            prompt = raw.slice(8).trim();
+            const prefixLen = lower.startsWith('hey chamy') ? 9 : 8;
+            prompt = raw.slice(prefixLen).trim();
         } else if (hasTypedMention) {
             prompt = raw.replace(new RegExp(`<@!?${client.user.id}>`, 'g'), '').trim();
         } else if (isReplyToOwnMessage) {
@@ -1536,7 +1543,7 @@ module.exports = (client) => {
         const displayName = message.member?.displayName || message.author.username;
 
         if (prompt.length === 0) {
-            return message.reply(`🏎️ Ommy is ready! Got a question, ${cleanDisplayName(displayName)}?`);
+            return message.reply(`🏎️ Chamy's ready! Got a question, ${cleanDisplayName(displayName)}?`);
         }
         if (prompt.length > 1000) {
             return message.reply('❌ Message too long! Keep it under 1000 characters. 🏎️');
@@ -1563,13 +1570,13 @@ module.exports = (client) => {
         if (role === 'member') {
             try {
                 const mDoc = await Maintenance.findById('singleton');
-                if (mDoc?.active) return message.reply('🔒 Ommy is in the pit lane for maintenance! Back soon. 🔧');
+                if (mDoc?.active) return message.reply('🔒 Chamy is in the pit lane for maintenance! Back soon. 🔧');
             } catch {}
         }
 
         if (!process.env.GEMINI_API_KEY) {
             console.error('[OMMY] GEMINI_API_KEY not set.');
-            return message.reply("⚠️ Ommy's radio is down — API not configured. 📡");
+            return message.reply("⚠️ Chamy's radio is down — API not configured. 📡");
         }
 
         await message.channel.sendTyping().catch(() => {});
@@ -1751,7 +1758,7 @@ module.exports = (client) => {
                 }
             }
 
-            message.reply('🔧 Ommy hit the wall — engine failure! Try again in a moment. 🏎️').catch(() => {});
+            message.reply('🔧 Chamy hit the wall — engine failure! Try again in a moment. 🏎️').catch(() => {});
         } finally {
             clearInterval(typingInterval);
         }
