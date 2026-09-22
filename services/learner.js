@@ -107,7 +107,7 @@ async function learnFromMessages(channelName, channelId, messages) {
         .map(m => `[${m.isStaff ? 'STAFF' : 'ÜYE'}] ${m.author}: ${m.content}`)
         .join('\n');
 
-    const system = `You are a knowledge extraction assistant for Olzhasstik Motorsports (OM) Discord server.
+    const system = `You are a knowledge extraction assistant for a Discord server.
 You extract permanent, structured facts about the server from Discord channel messages.
 
 EXTRACT:
