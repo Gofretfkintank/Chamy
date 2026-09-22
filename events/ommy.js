@@ -33,6 +33,8 @@ const ChannelCache        = require('../models/ChannelCache');
 const Maintenance         = require('../models/Maintenance');
 const Warn                = require('../models/Warn');
 const PendingRoleRestore  = require('../models/PendingRoleRestore');
+const RacingConfig        = require('../models/RacingConfig');
+const Sanction            = require('../models/Sanction');
 const { learnFromGuild, getKnowledgeContext } = require('../services/learner');
 const cfg                 = require('../lib/guildConfig');
 const perms                = require('../lib/perms');
@@ -44,6 +46,43 @@ const { LEGACY_GUILD_ID }   = require('../lib/legacySeed');
 // every guild the bot joined — removed: Ommy only needs to know who the
 // Commander is, not carry a standing bypass for anyone else.
 const CACHE_TTL_MS          = 2 * 60 * 60 * 1000;   // 2 hours
+
+// Default qualifying-to-race time reduction table (centiseconds), the same
+// numbers Aether ships with. A guild that never configures its own gets
+// these; positions past P10 always get 0.
+const DEFAULT_QUALIFYING_REDUCTIONS_CS = {
+    1: 20, 2: 18, 3: 16, 4: 14, 5: 12,
+    6: 10, 7: 8, 8: 6, 9: 4, 10: 2,
+};
+
+async function getQualifyingReductionCs(guildId, position) {
+    const pos = Math.trunc(position);
+    if (pos < 1 || pos > 10) return 0;
+    const config = await RacingConfig.findOne({ guildId }).lean().catch(() => null);
+    const stored = config?.qualifyingReductionsCs?.[String(pos)];
+    return typeof stored === 'number' ? stored : (DEFAULT_QUALIFYING_REDUCTIONS_CS[pos] || 0);
+}
+
+async function getFullReductionTable(guildId) {
+    const config = await RacingConfig.findOne({ guildId }).lean().catch(() => null);
+    const table = {};
+    for (let pos = 1; pos <= 10; pos++) {
+        const stored = config?.qualifyingReductionsCs?.[String(pos)];
+        table[pos] = typeof stored === 'number' ? stored : DEFAULT_QUALIFYING_REDUCTIONS_CS[pos];
+    }
+    return table;
+}
+
+function csToSeconds(cs) {
+    return (cs / 100).toFixed(2) + 's';
+}
+
+const SANCTION_CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no 0/O/1/I
+function generateSanctionCode() {
+    let code = '';
+    for (let i = 0; i < 4; i++) code += SANCTION_CODE_ALPHABET[Math.floor(Math.random() * SANCTION_CODE_ALPHABET.length)];
+    return code;
+}
 
 // Chamy carries OM League knowledge, OM moderation tools and OM history in
 // the home guild, so it must not start talking the moment the bot joins
@@ -942,6 +981,78 @@ const MOD_TOOL_DECLARATIONS = [
     }
 ];
 
+// Racing tools — offered to admins/commander, same tier as moderation. These
+// have nothing to do with Discord permissions; they read/write this guild's
+// own sporting-penalty records, not anyone's account or role.
+const RACING_TOOL_DECLARATIONS = [
+    {
+        name:        'get_qualifying_reduction',
+        description: 'Look up the qualifying-to-race time reduction for a finishing position in THIS server\'s league, in centiseconds and seconds. Only P1-P10 get a reduction; anything else is 0. Use when asked "what\'s the reduction for P5" or when working out an adjusted race time from a qualifying position.',
+        parameters: {
+            type: 'object',
+            properties: {
+                position: { type: 'integer', description: 'Qualifying finishing position (1-10+).' }
+            },
+            required: ['position']
+        }
+    },
+    {
+        name:        'set_qualifying_reduction',
+        description: "Set this server's own qualifying-to-race time reduction for one finishing position (P1-P10), in centiseconds. Only ever offered to admins/commander. Use 0 to remove a reduction for that position.",
+        parameters: {
+            type: 'object',
+            properties: {
+                position:     { type: 'integer', description: 'Qualifying position to configure (1-10).' },
+                centiseconds: { type: 'integer', description: 'Reduction in centiseconds (100 = 1 second). 20 = 0.20s, matching the P1 default.' }
+            },
+            required: ['position', 'centiseconds']
+        }
+    },
+    {
+        name:        'list_qualifying_reductions',
+        description: "Show this server's full P1-P10 qualifying reduction table.",
+        parameters:  { type: 'object', properties: {} }
+    },
+    {
+        name:        'issue_penalty',
+        description: 'Record a sporting penalty (sanction) against a driver: a TIME penalty (added seconds) or a DSQ (disqualification, no time value). Only ever offered to admins/commander. Returns a short sanction code the driver/staff can reference later.',
+        parameters: {
+            type: 'object',
+            properties: {
+                target:           { type: 'string',  description: 'The driver being penalized — Discord username, display name, mention, or ID.' },
+                type:             { type: 'string',  description: '"TIME" or "DSQ".', enum: ['TIME', 'DSQ'] },
+                penalty_seconds:  { type: 'number',  description: 'Penalty in seconds (e.g. 5 or 10.5). Required for TIME, ignored for DSQ.' },
+                reason:           { type: 'string',  description: 'Reason for the penalty.' },
+                context:          { type: 'string',  description: 'Optional: round number, session, or track this applies to, e.g. "Round 4, Race".' },
+                expiration_days:  { type: 'integer', description: 'How many days the sanction stays active before it is considered history (default 1).' }
+            },
+            required: ['target', 'type', 'reason']
+        }
+    },
+    {
+        name:        'get_penalties',
+        description: "Look up a driver's sanction history in this server (active and past).",
+        parameters: {
+            type: 'object',
+            properties: {
+                target: { type: 'string', description: 'The driver to check — Discord username, display name, mention, or ID.' }
+            },
+            required: ['target']
+        }
+    },
+    {
+        name:        'remove_penalty',
+        description: 'Remove/void a previously issued sanction by its code. Only ever offered to admins/commander.',
+        parameters: {
+            type: 'object',
+            properties: {
+                sanction_code: { type: 'string', description: 'The 4-character sanction code, e.g. "K7QM".' }
+            },
+            required: ['sanction_code']
+        }
+    }
+];
+
 // Commander-only tools — sadece Gofret'e sunulur
 const COMMANDER_TOOL_DECLARATIONS = [
     {
@@ -961,7 +1072,7 @@ const COMMANDER_TOOL_DECLARATIONS = [
 
 function getToolsForRole(role) {
     const decls = [...BASE_TOOL_DECLARATIONS];
-    if (role === 'admin' || role === 'commander') decls.push(...MOD_TOOL_DECLARATIONS);
+    if (role === 'admin' || role === 'commander') decls.push(...MOD_TOOL_DECLARATIONS, ...RACING_TOOL_DECLARATIONS);
     if (role === 'commander') decls.push(...COMMANDER_TOOL_DECLARATIONS);
     return [{ functionDeclarations: decls }];
 }
@@ -1304,6 +1415,127 @@ async function executeTool(name, args, client, guildId, userPrompt, message) {
             }
         }
 
+        case 'get_qualifying_reduction': {
+            const position = Math.trunc(Number(args.position));
+            if (!position || position < 1) return { error: 'invalid_position', message: 'Position must be a positive integer.' };
+            const cs = await getQualifyingReductionCs(guildId, position);
+            return { position, centiseconds: cs, seconds: csToSeconds(cs), appliesReduction: cs > 0 };
+        }
+
+        case 'set_qualifying_reduction': {
+            if (!message?.member?.permissions.has(PermissionsBitField.Flags.ManageGuild)) {
+                return { error: 'permission_denied', message: 'You need the Manage Server permission to do that.' };
+            }
+            const position = Math.trunc(Number(args.position));
+            const cs       = Math.trunc(Number(args.centiseconds));
+            if (!position || position < 1 || position > 10) return { error: 'invalid_position', message: 'Position must be 1-10 — only those get a reduction.' };
+            if (isNaN(cs) || cs < 0) return { error: 'invalid_value', message: 'Centiseconds must be a non-negative number.' };
+            await RacingConfig.findOneAndUpdate(
+                { guildId },
+                { $set: { [`qualifyingReductionsCs.${position}`]: cs } },
+                { upsert: true }
+            );
+            return { success: true, position, centiseconds: cs, seconds: csToSeconds(cs) };
+        }
+
+        case 'list_qualifying_reductions': {
+            const table = await getFullReductionTable(guildId);
+            return {
+                table: Object.entries(table).map(([position, cs]) => ({
+                    position: Number(position), centiseconds: cs, seconds: csToSeconds(cs)
+                }))
+            };
+        }
+
+        case 'issue_penalty': {
+            if (!message?.member?.permissions.has(PermissionsBitField.Flags.ManageGuild)) {
+                return { error: 'permission_denied', message: 'You need the Manage Server permission to do that.' };
+            }
+            const guild  = message.guild;
+            const target = await resolveTargetMember(guild, args.target || '');
+            if (!target) return { error: 'not_found', message: `Could not find a member matching "${args.target}".` };
+            if (!args.reason) return { error: 'missing_reason', message: 'A reason is required to issue a penalty.' };
+
+            const type = String(args.type || '').toUpperCase();
+            if (type !== 'TIME' && type !== 'DSQ') return { error: 'invalid_type', message: 'Type must be "TIME" or "DSQ".' };
+
+            let penaltyCs = null;
+            if (type === 'TIME') {
+                const seconds = Number(args.penalty_seconds);
+                if (!seconds || seconds <= 0) return { error: 'invalid_penalty', message: 'A positive penalty_seconds value is required for a TIME penalty.' };
+                penaltyCs = Math.round(seconds * 100);
+            }
+
+            const expirationDays = Math.min(Math.max(Math.trunc(Number(args.expiration_days) || 1), 1), 3650);
+            const expiresAt      = new Date(Date.now() + expirationDays * 24 * 60 * 60 * 1000);
+
+            let sanctionCode = generateSanctionCode();
+            for (let i = 0; i < 5 && await Sanction.exists({ sanctionCode }); i++) sanctionCode = generateSanctionCode();
+
+            try {
+                await Sanction.create({
+                    guildId,
+                    sanctionCode,
+                    targetUserId:    target.id,
+                    targetTag:       target.user.tag,
+                    sanctionType:    type,
+                    penaltyCs,
+                    context:         args.context || '',
+                    reason:          args.reason,
+                    createdBy:       message.author.id,
+                    expirationDays,
+                    expiresAt,
+                });
+                return {
+                    success:      true,
+                    sanctionCode,
+                    driver:       target.user.tag,
+                    type,
+                    penalty:      type === 'TIME' ? csToSeconds(penaltyCs) : 'DSQ',
+                    expiresAt:    expiresAt.toISOString(),
+                };
+            } catch (err) {
+                return { error: 'sanction_failed', message: err.message };
+            }
+        }
+
+        case 'get_penalties': {
+            const guild  = message.guild;
+            const target = await resolveTargetMember(guild, args.target || '');
+            if (!target) return { error: 'not_found', message: `Could not find a member matching "${args.target}".` };
+            const sanctions = await Sanction.find({ guildId, targetUserId: target.id }).sort({ createdAt: -1 }).limit(20).lean();
+            if (sanctions.length === 0) return { found: true, driver: target.user.tag, penalties: [] };
+            return {
+                found:     true,
+                driver:    target.user.tag,
+                count:     sanctions.length,
+                penalties: sanctions.map(s => ({
+                    code:      s.sanctionCode,
+                    type:      s.sanctionType,
+                    penalty:   s.sanctionType === 'TIME' ? csToSeconds(s.penaltyCs) : 'DSQ',
+                    reason:    s.reason,
+                    context:   s.context,
+                    status:    s.status,
+                    createdAt: s.createdAt.toISOString(),
+                }))
+            };
+        }
+
+        case 'remove_penalty': {
+            if (!message?.member?.permissions.has(PermissionsBitField.Flags.ManageGuild)) {
+                return { error: 'permission_denied', message: 'You need the Manage Server permission to do that.' };
+            }
+            const code = String(args.sanction_code || '').toUpperCase().trim();
+            if (!code) return { error: 'missing_code', message: 'A sanction code is required.' };
+            const sanction = await Sanction.findOneAndUpdate(
+                { guildId, sanctionCode: code, status: 'ACTIVE' },
+                { $set: { status: 'REMOVED', removedBy: message.author.id, removedAt: new Date() } },
+                { new: true }
+            );
+            if (!sanction) return { error: 'not_found', message: `No active sanction with code "${code}" found in this server.` };
+            return { success: true, removed: code, driver: sanction.targetTag };
+        }
+
         case 'learn_server': {
             if (!perms.isOwner(message.author.id)) {
                 return { error: 'permission_denied', message: 'Bu araç sadece Commander için.' };
@@ -1406,6 +1638,13 @@ MODERATION TOOLS (ban_member, mute_member, unmute_member, kick_member, unban_mem
 - Never claim an action succeeded unless the tool result says success: true. Relay errors (permission denied, member not found, role hierarchy) plainly and briefly — don't apologize excessively.
 - clear_warnings is destructive and irreversible — if there's any doubt about intent, confirm with the user before calling it.
 - dm_member sends a real DM as if from staff — only send exactly what the requesting admin asked for, word for word in intent. Never compose your own persuasive, deceptive, or unrelated message content.
+
+RACING TOOLS (get_qualifying_reduction, set_qualifying_reduction, list_qualifying_reductions, issue_penalty, get_penalties, remove_penalty — only present for admins/commander):
+- These are sporting-penalty records for THIS server's own league, independent of any other server's numbers or rules.
+- issue_penalty is a real, logged sanction — only call it when explicitly asked to penalize/sanction/DSQ a driver, never inferred from banter about a driver's on-track conduct.
+- TIME penalties need a positive penalty_seconds; DSQ never takes a time value — don't invent one.
+- If the target driver is ambiguous, ask which one instead of guessing, same as moderation tools.
+- Relay the returned sanction_code back to the user — it's how the penalty gets looked up or removed later.
 
 ${isHomeGuild ? `OM LEAGUE KNOWLEDGE (no tool needed):
 - Registration: For joining the league or a championship season, refer the user to the SERVER KNOWLEDGE BASE section above or use the scan_channel_messages tool to check the relevant channel — do NOT just say "/register" unless the knowledge base explicitly confirms that's the correct step.
