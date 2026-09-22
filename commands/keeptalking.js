@@ -317,7 +317,7 @@ async function defused(interaction, msg, game) {
             `Strikes taken: **${game.strikes}/${game.maxStrikes}**\n` +
             `Time used: **${elapsed}s / ${game.timeLimit}s**`
         )
-        .setFooter({ text: 'Olzhasstik Motorsports — Game Night' });
+        .setFooter({ text: 'Game Night' });
 
     await msg.edit({ embeds: [finalEmbed], components: [] });
 }
