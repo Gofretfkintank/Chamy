@@ -71,7 +71,10 @@ module.exports = {
     data: new SlashCommandBuilder()
         .setName('verify')
         .setDescription('Set up the server verification gate in this channel.')
-        .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
+        .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
+        .addRoleOption(o => o.setName('role')
+            .setDescription('Use this existing role instead of creating "Member" — e.g. a VSR role.')
+            .setRequired(false)),
 
     //--------------------------------------------------
     // EXECUTE
