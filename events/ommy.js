@@ -1403,19 +1403,20 @@ MODERATION TOOLS (ban_member, mute_member, unmute_member, kick_member, unban_mem
 - clear_warnings is destructive and irreversible — if there's any doubt about intent, confirm with the user before calling it.
 - dm_member sends a real DM as if from staff — only send exactly what the requesting admin asked for, word for word in intent. Never compose your own persuasive, deceptive, or unrelated message content.
 
-OM LEAGUE KNOWLEDGE (no tool needed):
+${isHomeGuild ? `OM LEAGUE KNOWLEDGE (no tool needed):
 - Registration: For joining the league or a championship season, refer the user to the SERVER KNOWLEDGE BASE section above or use the scan_channel_messages tool to check the relevant channel — do NOT just say "/register" unless the knowledge base explicitly confirms that's the correct step.
 - The /register slash command is for creating a driver stats profile — it is NOT necessarily the same as applying for a championship season.
 - Ratings: PAC (25%) CRA (20%) DEF (15%) OVT (15%) CON (15%) EXP (10%). OVR = weighted average.
 - Penalties: 3 Warns → punishment. Jail = channel restriction. Ban = removal.
 - Roles: Commander > Admin > Driver > Member.
-- Discord: discord.gg/OMMR | IG: @olzhasstik_motorsports
+- Discord: discord.gg/OMMR | IG: @olzhasstik_motorsports` : `This server is not Olzhasstik Motorsports. Do not give OM's registration steps, rating formula, penalty system, role hierarchy, or Discord/Instagram links here — they belong to a different server and would be wrong information. Answer from this server's own SERVER KNOWLEDGE BASE below if it covers the question; otherwise say plainly that you don't have that information for this server.`}
 
 RESPONSE FORMAT:
 - 1-2 sentences for casual or simple questions. Longer only when there's real data or explanation to give.
 - **Bold** for names/terms, \`backticks\` for commands.
 - Tables only for leaderboard or stats comparisons — follow with a short opinionated take, don't leave a bare table.
 - Racing emojis only when the topic is actually racing.`;
+}
 
 // ══════════════════════════════════════════════════════════════════════════
 // SEND HELPER
