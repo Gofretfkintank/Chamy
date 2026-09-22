@@ -25,7 +25,7 @@ const SCENARIOS = [
     { scene: '🎤 **Scenario:** Post-race press conference. A journalist asks the most pointless question anyone has ever heard...', hint: 'Press conference pain 😅' },
     { scene: '🔧 **Scenario:** Mechanic working under the car. Driver leans in and asks something completely unnecessary right now...', hint: 'Garage moment 🔧' },
     { scene: '🏆 **Scenario:** Small backmarker team scores their first point ever. Half the garage is crying. What are they saying?', hint: 'First point 🥹' },
-    { scene: '🎮 **Scenario:** Olzhasstik Motorsports Game Night kicks off. Everyone\'s ready. OM-Bot returns an unexpected error message...', hint: 'OM Bot crisis 🤖' },
+    { scene: '🎮 **Scenario:** Game Night kicks off. Everyone\'s ready. The bot returns an unexpected error message...', hint: 'bot crisis 🤖' },
 ];
 
 const activeGames = new Map();
