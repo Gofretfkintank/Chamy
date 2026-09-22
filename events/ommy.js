@@ -1164,7 +1164,7 @@ async function executeTool(name, args, client, guildId, userPrompt, message) {
             try {
                 let data = await Warn.findOne({ userId: target.id, guildId: guild.id });
                 if (!data) data = new Warn({ userId: target.id, guildId: guild.id, warns: [] });
-                data.warns.push({ reason: args.reason, moderator: `${message.author.tag} (via Ommy)`, date: new Date().toLocaleDateString() });
+                data.warns.push({ reason: args.reason, moderator: `${message.author.tag} (via Chamy)`, date: new Date().toLocaleDateString() });
                 await data.save();
                 return { success: true, warned: target.user.tag, totalWarnings: data.warns.length };
             } catch (err) {
