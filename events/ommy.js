@@ -1752,7 +1752,7 @@ module.exports = (client) => {
                 }
             }
 
-            message.reply('🔧 Ommy hit the wall — engine failure! Try again in a moment. 🏎️').catch(() => {});
+            message.reply('🔧 Chamy hit the wall — engine failure! Try again in a moment. 🏎️').catch(() => {});
         } finally {
             clearInterval(typingInterval);
         }
