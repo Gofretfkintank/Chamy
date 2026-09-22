@@ -394,7 +394,7 @@ async function endGame(interaction, msg, game, playerEmojis) {
                 return `${medal} **${p.name}** — ${status} | 🏁 ${p.properties.length} circuits`;
             }).join('\n')
         )
-        .setFooter({ text: 'Olzhasstik Motorsports — Game Night' });
+        .setFooter({ text: 'Game Night' });
 
     await msg.edit({ embeds: [finalEmbed], components: [] });
 }
