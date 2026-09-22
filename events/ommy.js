@@ -1537,7 +1537,7 @@ module.exports = (client) => {
         const displayName = message.member?.displayName || message.author.username;
 
         if (prompt.length === 0) {
-            return message.reply(`🏎️ Ommy is ready! Got a question, ${cleanDisplayName(displayName)}?`);
+            return message.reply(`🏎️ Chamy's ready! Got a question, ${cleanDisplayName(displayName)}?`);
         }
         if (prompt.length > 1000) {
             return message.reply('❌ Message too long! Keep it under 1000 characters. 🏎️');
