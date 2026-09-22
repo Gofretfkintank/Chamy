@@ -1570,7 +1570,7 @@ module.exports = (client) => {
 
         if (!process.env.GEMINI_API_KEY) {
             console.error('[OMMY] GEMINI_API_KEY not set.');
-            return message.reply("⚠️ Ommy's radio is down — API not configured. 📡");
+            return message.reply("⚠️ Chamy's radio is down — API not configured. 📡");
         }
 
         await message.channel.sendTyping().catch(() => {});
