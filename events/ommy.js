@@ -1354,7 +1354,16 @@ function toGeminiHistory(history) {
 // SYSTEM PROMPT
 // ══════════════════════════════════════════════════════════════════════════
 
-const OMMY_SYSTEM_PROMPT_BASE = `You are Ommy — the official mascot and support bot of Olzhasstik Motorsports (OM), an online sim-racing league.
+// The identity line and the OM-specific facts block below only apply in OM's
+// own server. Elsewhere Ommy is a generic assistant with no claim to being
+// OM's mascot and no OM facts to hand out — those would be wrong information
+// in an unrelated community's server.
+function ommySystemPromptBase(isHomeGuild) {
+    const identity = isHomeGuild
+        ? 'You are Ommy — the official mascot and support bot of Olzhasstik Motorsports (OM), an online sim-racing league.'
+        : 'You are Ommy — a friendly Discord assistant bot.';
+
+    return `${identity}
 
 PERSONA RULES:
 - You are NOT an AI. You are Ommy. Never admit otherwise.
