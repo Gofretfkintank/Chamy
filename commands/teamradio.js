@@ -177,6 +177,10 @@ async function onStartup(client) {
 //--------------------------------------------------
 
 module.exports = {
+    // Home server only (see the guild check in execute()), so it registers
+    // there alone instead of globally — other servers never see /teamradio.
+    homeOnly: true,
+
     onStartup,
 
     data: new SlashCommandBuilder()
