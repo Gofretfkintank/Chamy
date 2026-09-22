@@ -1507,7 +1507,8 @@ module.exports = (client) => {
 
         let prompt = null;
         if (hasHeyOmmy) {
-            prompt = raw.slice(8).trim();
+            const prefixLen = lower.startsWith('hey chamy') ? 9 : 8;
+            prompt = raw.slice(prefixLen).trim();
         } else if (hasTypedMention) {
             prompt = raw.replace(new RegExp(`<@!?${client.user.id}>`, 'g'), '').trim();
         } else if (isReplyToOwnMessage) {
