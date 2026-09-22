@@ -11,15 +11,18 @@ require('dotenv').config();
 // guilds below. Never both at once: a command registered globally AND in a
 // guild shows up twice in that guild's picker.
 
-const commands = [];
+const commands         = [];
+const homeOnlyCommands = [];
 for (const file of fs.readdirSync('./commands').filter(f => f.endsWith('.js'))) {
     const command = require(`./commands/${file}`);
     if (!command?.data) {
         console.warn(`[SKIP] commands/${file} exports no "data" — not registering it.`);
         continue;
     }
-    commands.push(command.data.toJSON());
+    (command.homeOnly ? homeOnlyCommands : commands).push(command.data.toJSON());
 }
+
+const { LEGACY_GUILD_ID } = require('./lib/legacySeed');
 
 const devGuilds = (process.env.DEV_GUILD_IDS || [
     process.env.GUILD_ID_1,
@@ -38,7 +41,7 @@ const rest  = new REST({ version: '10' }).setToken(process.env.TOKEN);
     }
 
     try {
-        console.log(`[SYSTEM] Registering ${commands.length} commands (scope: ${scope})...`);
+        console.log(`[SYSTEM] Registering ${commands.length} global + ${homeOnlyCommands.length} home-only command(s) (scope: ${scope})...`);
 
         if (scope === 'guild') {
             if (!devGuilds.length) {
@@ -48,7 +51,7 @@ const rest  = new REST({ version: '10' }).setToken(process.env.TOKEN);
             for (const guildId of devGuilds) {
                 await rest.put(
                     Routes.applicationGuildCommands(process.env.CLIENT_ID, guildId),
-                    { body: commands }
+                    { body: [...commands, ...homeOnlyCommands] }
                 );
                 console.log(`✅ Registered in guild ${guildId} (instant, dev only)`);
             }
@@ -76,6 +79,15 @@ const rest  = new REST({ version: '10' }).setToken(process.env.TOKEN);
             { body: commands }
         );
         console.log('✅ Registered globally — available in every server the bot joins.');
+
+        if (homeOnlyCommands.length && LEGACY_GUILD_ID) {
+            await rest.put(
+                Routes.applicationGuildCommands(process.env.CLIENT_ID, LEGACY_GUILD_ID),
+                { body: homeOnlyCommands }
+            );
+            console.log(`🏠 ${homeOnlyCommands.length} home-only command(s) registered to ${LEGACY_GUILD_ID} only.`);
+        }
+
         console.log('[SYSTEM] Done. Global commands can take up to an hour to appear.');
         process.exit(0);
 
