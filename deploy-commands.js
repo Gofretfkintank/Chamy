@@ -41,7 +41,7 @@ const rest  = new REST({ version: '10' }).setToken(process.env.TOKEN);
     }
 
     try {
-        console.log(`[SYSTEM] Registering ${commands.length} commands (scope: ${scope})...`);
+        console.log(`[SYSTEM] Registering ${commands.length} global + ${homeOnlyCommands.length} home-only command(s) (scope: ${scope})...`);
 
         if (scope === 'guild') {
             if (!devGuilds.length) {
@@ -51,7 +51,7 @@ const rest  = new REST({ version: '10' }).setToken(process.env.TOKEN);
             for (const guildId of devGuilds) {
                 await rest.put(
                     Routes.applicationGuildCommands(process.env.CLIENT_ID, guildId),
-                    { body: commands }
+                    { body: [...commands, ...homeOnlyCommands] }
                 );
                 console.log(`✅ Registered in guild ${guildId} (instant, dev only)`);
             }
