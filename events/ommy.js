@@ -45,11 +45,12 @@ const { LEGACY_GUILD_ID }   = require('../lib/legacySeed');
 // Commander is, not carry a standing bypass for anyone else.
 const CACHE_TTL_MS          = 2 * 60 * 60 * 1000;   // 2 hours
 
-// Ommy carries OM League knowledge, OM moderation tools and an OM persona, so
-// it must not start talking the moment the bot joins somebody else's server.
-// It sleeps everywhere until the Commander wakes it in that specific guild.
-// Deliberately a hardcoded phrase and a hardcoded id rather than a /config
-// key: an admin of a random server should not be able to switch it on.
+// Chamy carries OM League knowledge, OM moderation tools and OM history in
+// the home guild, so it must not start talking the moment the bot joins
+// somebody else's server. It sleeps everywhere until the Commander wakes it
+// in that specific guild. Deliberately a hardcoded phrase and gated on the
+// bot operator (see lib/perms) rather than a /config key: an admin of a
+// random server should not be able to switch it on.
 const WAKE_PHRASE  = /\bwakey\s+wakey\b/i;
 const SLEEP_PHRASE = /\bnighty\s+night\b/i;
 
