@@ -79,6 +79,15 @@ const rest  = new REST({ version: '10' }).setToken(process.env.TOKEN);
             { body: commands }
         );
         console.log('✅ Registered globally — available in every server the bot joins.');
+
+        if (homeOnlyCommands.length && LEGACY_GUILD_ID) {
+            await rest.put(
+                Routes.applicationGuildCommands(process.env.CLIENT_ID, LEGACY_GUILD_ID),
+                { body: homeOnlyCommands }
+            );
+            console.log(`🏠 ${homeOnlyCommands.length} home-only command(s) registered to ${LEGACY_GUILD_ID} only.`);
+        }
+
         console.log('[SYSTEM] Done. Global commands can take up to an hour to appear.');
         process.exit(0);
 
