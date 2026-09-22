@@ -28,7 +28,7 @@ const QUESTIONS = [
     { q: 'What does DRS stand for?', options: ['Drag Reduction System', 'Downforce Removal System', 'Dynamic Racing Suspension', 'Direct Response Steering'], a: 0, category: '🔴 F1 Rules' },
     { q: 'Which platform is OM Panel deployed on?', options: ['Heroku', 'Render', 'Railway', 'Vercel'], a: 2, category: '🔴 OM Special' },
     { q: 'What is the highest privilege level in OM called?', options: ['Admin', 'Moderator', 'Commander', 'Owner'], a: 2, category: '🔴 OM Special' },
-    { q: 'What type of sim-racing does Olzhasstik Motorsports focus on?', options: ['Rally', 'Formula', 'NASCAR', 'MotoGP'], a: 1, category: '🔴 OM Special' },
+    { q: 'What is the minimum weight of an F1 car (with driver) as of 2023?', options: ['698 kg', '752 kg', '798 kg', '820 kg'], a: 2, category: '🔴 F1 Rules' },
     { q: 'Which slash command is used to register as a driver in OM-Bot?', options: ['/signup', '/register', '/join', '/adddriver'], a: 1, category: '🔴 OM Special' },
 ];
 
