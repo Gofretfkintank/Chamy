@@ -1415,6 +1415,127 @@ async function executeTool(name, args, client, guildId, userPrompt, message) {
             }
         }
 
+        case 'get_qualifying_reduction': {
+            const position = Math.trunc(Number(args.position));
+            if (!position || position < 1) return { error: 'invalid_position', message: 'Position must be a positive integer.' };
+            const cs = await getQualifyingReductionCs(guildId, position);
+            return { position, centiseconds: cs, seconds: csToSeconds(cs), appliesReduction: cs > 0 };
+        }
+
+        case 'set_qualifying_reduction': {
+            if (!message?.member?.permissions.has(PermissionsBitField.Flags.ManageGuild)) {
+                return { error: 'permission_denied', message: 'You need the Manage Server permission to do that.' };
+            }
+            const position = Math.trunc(Number(args.position));
+            const cs       = Math.trunc(Number(args.centiseconds));
+            if (!position || position < 1 || position > 10) return { error: 'invalid_position', message: 'Position must be 1-10 — only those get a reduction.' };
+            if (isNaN(cs) || cs < 0) return { error: 'invalid_value', message: 'Centiseconds must be a non-negative number.' };
+            await RacingConfig.findOneAndUpdate(
+                { guildId },
+                { $set: { [`qualifyingReductionsCs.${position}`]: cs } },
+                { upsert: true }
+            );
+            return { success: true, position, centiseconds: cs, seconds: csToSeconds(cs) };
+        }
+
+        case 'list_qualifying_reductions': {
+            const table = await getFullReductionTable(guildId);
+            return {
+                table: Object.entries(table).map(([position, cs]) => ({
+                    position: Number(position), centiseconds: cs, seconds: csToSeconds(cs)
+                }))
+            };
+        }
+
+        case 'issue_penalty': {
+            if (!message?.member?.permissions.has(PermissionsBitField.Flags.ManageGuild)) {
+                return { error: 'permission_denied', message: 'You need the Manage Server permission to do that.' };
+            }
+            const guild  = message.guild;
+            const target = await resolveTargetMember(guild, args.target || '');
+            if (!target) return { error: 'not_found', message: `Could not find a member matching "${args.target}".` };
+            if (!args.reason) return { error: 'missing_reason', message: 'A reason is required to issue a penalty.' };
+
+            const type = String(args.type || '').toUpperCase();
+            if (type !== 'TIME' && type !== 'DSQ') return { error: 'invalid_type', message: 'Type must be "TIME" or "DSQ".' };
+
+            let penaltyCs = null;
+            if (type === 'TIME') {
+                const seconds = Number(args.penalty_seconds);
+                if (!seconds || seconds <= 0) return { error: 'invalid_penalty', message: 'A positive penalty_seconds value is required for a TIME penalty.' };
+                penaltyCs = Math.round(seconds * 100);
+            }
+
+            const expirationDays = Math.min(Math.max(Math.trunc(Number(args.expiration_days) || 1), 1), 3650);
+            const expiresAt      = new Date(Date.now() + expirationDays * 24 * 60 * 60 * 1000);
+
+            let sanctionCode = generateSanctionCode();
+            for (let i = 0; i < 5 && await Sanction.exists({ sanctionCode }); i++) sanctionCode = generateSanctionCode();
+
+            try {
+                await Sanction.create({
+                    guildId,
+                    sanctionCode,
+                    targetUserId:    target.id,
+                    targetTag:       target.user.tag,
+                    sanctionType:    type,
+                    penaltyCs,
+                    context:         args.context || '',
+                    reason:          args.reason,
+                    createdBy:       message.author.id,
+                    expirationDays,
+                    expiresAt,
+                });
+                return {
+                    success:      true,
+                    sanctionCode,
+                    driver:       target.user.tag,
+                    type,
+                    penalty:      type === 'TIME' ? csToSeconds(penaltyCs) : 'DSQ',
+                    expiresAt:    expiresAt.toISOString(),
+                };
+            } catch (err) {
+                return { error: 'sanction_failed', message: err.message };
+            }
+        }
+
+        case 'get_penalties': {
+            const guild  = message.guild;
+            const target = await resolveTargetMember(guild, args.target || '');
+            if (!target) return { error: 'not_found', message: `Could not find a member matching "${args.target}".` };
+            const sanctions = await Sanction.find({ guildId, targetUserId: target.id }).sort({ createdAt: -1 }).limit(20).lean();
+            if (sanctions.length === 0) return { found: true, driver: target.user.tag, penalties: [] };
+            return {
+                found:     true,
+                driver:    target.user.tag,
+                count:     sanctions.length,
+                penalties: sanctions.map(s => ({
+                    code:      s.sanctionCode,
+                    type:      s.sanctionType,
+                    penalty:   s.sanctionType === 'TIME' ? csToSeconds(s.penaltyCs) : 'DSQ',
+                    reason:    s.reason,
+                    context:   s.context,
+                    status:    s.status,
+                    createdAt: s.createdAt.toISOString(),
+                }))
+            };
+        }
+
+        case 'remove_penalty': {
+            if (!message?.member?.permissions.has(PermissionsBitField.Flags.ManageGuild)) {
+                return { error: 'permission_denied', message: 'You need the Manage Server permission to do that.' };
+            }
+            const code = String(args.sanction_code || '').toUpperCase().trim();
+            if (!code) return { error: 'missing_code', message: 'A sanction code is required.' };
+            const sanction = await Sanction.findOneAndUpdate(
+                { guildId, sanctionCode: code, status: 'ACTIVE' },
+                { $set: { status: 'REMOVED', removedBy: message.author.id, removedAt: new Date() } },
+                { new: true }
+            );
+            if (!sanction) return { error: 'not_found', message: `No active sanction with code "${code}" found in this server.` };
+            return { success: true, removed: code, driver: sanction.targetTag };
+        }
+
         case 'learn_server': {
             if (!perms.isOwner(message.author.id)) {
                 return { error: 'permission_denied', message: 'Bu araç sadece Commander için.' };
