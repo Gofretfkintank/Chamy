@@ -78,8 +78,8 @@ function trackOmmyMessageId(id) {
     }
 }
 
-// ── Commander-only lock toggle — while true, Ommy never calls Gemini ───────
-let ommyLocked = false;
+// ── Operator lock toggle — per guild, bypasses Gemini entirely while locked ─
+const lockedGuilds = new Set();
 
 // ══════════════════════════════════════════════════════════════════════════
 // CLEAN DISPLAY NAME
