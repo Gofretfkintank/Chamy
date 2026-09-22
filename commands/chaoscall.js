@@ -430,7 +430,7 @@ module.exports = {
         { name: '💰 Results Impact',  value: impactValue,    inline: false },
       )
       .setColor(intensityColor(chaos.intensity))
-      .setFooter({ text: 'Olzhasstik Motorsports • Chaos Pool: 100 scenarios' })
+      .setFooter({ text: 'Chaos Pool: 100 scenarios' })
       .setTimestamp();
 
     const content = shouldPing ? '@everyone\n🚨 **CHAOS CALL ACTIVE!**' : '🚨 **CHAOS CALL ACTIVE!**';
