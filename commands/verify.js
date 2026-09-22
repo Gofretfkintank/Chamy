@@ -38,7 +38,7 @@ function buildVerifyEmbed(guildName) {
             `Welcome to **${guildName}**!\n\n` +
             `Click **Verify** below to confirm you're human and unlock access to the rest of the server.`
         )
-        .setFooter({ text: 'Olzhasstik Motorsports — Verification System' })
+        .setFooter({ text: 'Verification System' })
         .setTimestamp();
 }
 
