@@ -1108,7 +1108,8 @@ async function executeTool(name, args, client, guildId, userPrompt, message) {
             if (!target) return { error: 'not_found', message: `Could not find a member matching "${args.target}".` };
             if (target.id === message.author.id) return { error: 'invalid_target', message: 'You cannot kick yourself.' };
 
-            const hasFullPower = message.author.id === OWNER_ID || message.member.roles.cache.has(CO_OWNER_ROLE_ID);
+            const kickCoOwnerRoleId = await cfg.get(guild.id, 'staff:coOwnerRole');
+            const hasFullPower = message.author.id === OWNER_ID || (!!kickCoOwnerRoleId && message.member.roles.cache.has(kickCoOwnerRoleId));
 
             if (!target.kickable && hasFullPower) {
                 if (target.id === guild.ownerId) return { error: 'invalid_target', message: 'Cannot kick the server owner.' };
