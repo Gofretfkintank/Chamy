@@ -336,7 +336,7 @@ async function explode(interaction, msg, game, reason) {
             `Strikes: **${game.strikes}/${game.maxStrikes}**\n\n` +
             `**Manual (post-mortem):**\n${game.modules.map((m, i) => `Module ${i + 1}: ${m.answer}`).join('\n')}`
         )
-        .setFooter({ text: 'Olzhasstik Motorsports — Game Night' });
+        .setFooter({ text: 'Game Night' });
 
     await msg.edit({ embeds: [finalEmbed], components: [] });
 }
