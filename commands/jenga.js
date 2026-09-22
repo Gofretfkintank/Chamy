@@ -305,7 +305,7 @@ async function endGame(interaction, msg, game) {
                 return `${medal} **${p.name}** — risk: ${p.risk}${p.out ? ' *(knocked out)*' : ''}`;
             }).join('\n')
         )
-        .setFooter({ text: 'Olzhasstik Motorsports — Game Night' });
+        .setFooter({ text: 'Game Night' });
 
     await msg.edit({ embeds: [finalEmbed], components: [] });
 }
