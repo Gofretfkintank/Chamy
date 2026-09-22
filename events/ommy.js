@@ -537,9 +537,11 @@ async function buildBehaviorProfile(client, guildId, userId, displayName) {
 
         await guild.channels.fetch().catch(() => {});
 
-        // Prefer Paddock category; fall back to any text channels
+        // Prefer this guild's configured Paddock-equivalent category; fall back
+        // to any text channels when nothing is configured (e.g. a new server).
+        const paddockCategoryId = await cfg.get(guildId, 'categories:paddock');
         let scanChannels = guild.channels.cache.filter(c =>
-            c.isTextBased() && !c.isThread() && c.parentId === PADDOCK_CATEGORY_ID
+            c.isTextBased() && !c.isThread() && paddockCategoryId && c.parentId === paddockCategoryId
         );
         if (scanChannels.size === 0) {
             scanChannels = guild.channels.cache.filter(c => c.isTextBased() && !c.isThread()).first(8);
