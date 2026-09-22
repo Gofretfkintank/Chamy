@@ -223,7 +223,7 @@ async function endGame(interaction, msg, game) {
         .setColor(0xf5c518)
         .setTitle('🏆 TRIVIA — Final Results')
         .setDescription(description)
-        .setFooter({ text: 'Olzhasstik Motorsports — Game Night' });
+        .setFooter({ text: 'Game Night' });
 
     await msg.edit({ embeds: [finalEmbed], components: [] });
 }
