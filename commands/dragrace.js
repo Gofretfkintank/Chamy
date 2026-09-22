@@ -187,7 +187,7 @@ async function startRace(interaction, msg, game, raceDuration, buildTrack) {
                 `**Track:**\n${buildTrack()}\n\n` +
                 `**Final Standings:**\n${leaderboard.join('\n')}`
             )
-            .setFooter({ text: 'Olzhasstik Motorsports — Game Night' });
+            .setFooter({ text: 'Game Night' });
 
         await msg.edit({ embeds: [finalEmbed], components: [] });
     });
