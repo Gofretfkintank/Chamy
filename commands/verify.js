@@ -166,7 +166,7 @@ module.exports = {
         // 6. Confirm to the admin
         return interaction.editReply(
             `✅ Verification gate live in ${gateChannel}.\n\n` +
-            `**Role:** ${memberRole} (baby blue, hoisted)\n` +
+            `**Role:** ${memberRole}${roleWasCreated ? ' (created, baby blue, hoisted)' : ' (existing role)'}\n` +
             `🔒 **${locked}** channel(s) hidden from @everyone\n` +
             `⏭️ **${skipped}** channel(s) already private — left untouched\n` +
             (failed ? `⚠️ **${failed}** channel(s) failed — check my permissions there.\n` : '') +
