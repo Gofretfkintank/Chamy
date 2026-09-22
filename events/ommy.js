@@ -1072,7 +1072,7 @@ const COMMANDER_TOOL_DECLARATIONS = [
 
 function getToolsForRole(role) {
     const decls = [...BASE_TOOL_DECLARATIONS];
-    if (role === 'admin' || role === 'commander') decls.push(...MOD_TOOL_DECLARATIONS);
+    if (role === 'admin' || role === 'commander') decls.push(...MOD_TOOL_DECLARATIONS, ...RACING_TOOL_DECLARATIONS);
     if (role === 'commander') decls.push(...COMMANDER_TOOL_DECLARATIONS);
     return [{ functionDeclarations: decls }];
 }
