@@ -1722,10 +1722,10 @@ module.exports = (client) => {
             console.error('[OMMY STACK]', err?.stack?.split('\n').slice(0, 3).join(' | '));
 
             if (is503) {
-                console.warn('[OMMY] 503 on gemini-2.5-flash — switching to gemini-2.0-flash');
+                console.warn('[OMMY] 503 on gemini-2.5-flash — switching to gemini-3.6-flash');
                 try {
                     const fbModel = getGemini().getGenerativeModel({
-                        model:             'gemini-2.0-flash',
+                        model:             'gemini-3.6-flash',
                         tools:             getToolsForRole(role),
                         systemInstruction: systemPrompt,
                         generationConfig:  { temperature: 0.8, maxOutputTokens: 2048 },
