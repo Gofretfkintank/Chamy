@@ -62,7 +62,7 @@ module.exports = {
                 value: 'Pace 25% · Racecraft 20% · Defending 15% · Overtaking 15% · Consistency 15% · Experience 10%'
             })
             .setFooter({
-                text: `${drivers.length} drivers rated · Olzhasstik Motorsports`,
+                text: `${drivers.length} drivers rated`,
                 iconURL: interaction.guild?.iconURL() || undefined
             })
             .setTimestamp();
