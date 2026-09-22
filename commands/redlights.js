@@ -51,7 +51,7 @@ module.exports = {
                         ? `${lights}\n\n**⚡ PRESS NOW!**`
                         : lights
                 )
-                .setFooter({ text: 'Olzhasstik Motorsports — Race Night' });
+                .setFooter({ text: 'Race Night' });
         };
 
         const disabledRow = new ActionRowBuilder().addComponents(
