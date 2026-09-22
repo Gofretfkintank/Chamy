@@ -1042,7 +1042,8 @@ async function executeTool(name, args, client, guildId, userPrompt, message) {
             if (!ms) return { error: 'invalid_duration', message: 'Invalid duration. Examples: 10m, 1h, 2d.' };
 
             const reason = `${args.reason || 'No reason provided'} (via Ommy, requested by ${message.author.tag})`;
-            const hasFullPower = message.author.id === OWNER_ID || message.member.roles.cache.has(CO_OWNER_ROLE_ID);
+            const muteCoOwnerRoleId = await cfg.get(guild.id, 'staff:coOwnerRole');
+            const hasFullPower = message.author.id === OWNER_ID || (!!muteCoOwnerRoleId && message.member.roles.cache.has(muteCoOwnerRoleId));
 
             if (!target.moderatable && hasFullPower) {
                 if (target.id === guild.ownerId) return { error: 'invalid_target', message: 'Cannot moderate the server owner.' };
