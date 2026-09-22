@@ -1533,19 +1533,19 @@ module.exports = (client) => {
             return message.reply('❌ Message too long! Keep it under 1000 characters. 🏎️');
         }
 
-        // ── Commander-only lock toggle — bypasses Gemini entirely while locked ──
-        if (message.author.id === COMMANDER_ID) {
+        // ── Operator lock toggle — bypasses Gemini entirely for this guild ──
+        if (perms.isOwner(message.author.id)) {
             if (/\bunlock yourself\b/i.test(prompt)) {
-                ommyLocked = false;
-                return message.reply('🔓 Unlocked. Back online.');
+                lockedGuilds.delete(message.guildId);
+                return message.reply('🔓 Unlocked. Back online in this server.');
             }
             if (/\block yourself\b/i.test(prompt)) {
-                ommyLocked = true;
-                return message.reply('🔒 Locked by Gofret.');
+                lockedGuilds.add(message.guildId);
+                return message.reply('🔒 Locked in this server.');
             }
         }
-        if (ommyLocked) {
-            return message.reply("🔒 I'm locked by Gofret.");
+        if (lockedGuilds.has(message.guildId)) {
+            return message.reply("🔒 I'm locked here.");
         }
 
         const role = await detectRole(message);
