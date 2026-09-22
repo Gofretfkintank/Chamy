@@ -171,8 +171,7 @@ module.exports = {
             const embed = new EmbedBuilder()
                 .setTitle(`${user1.username} vs ${user2.username}`)
                 .setImage(result.url)
-                .setColor(rating1 >= rating2 ? color1 : color2)
-                ;
+                .setColor(rating1 >= rating2 ? color1 : color2);
 
             return interaction.editReply({ embeds: [embed] });
 
