@@ -163,7 +163,7 @@ module.exports = {
                 .setColor(0x2f3136)
                 .setTitle(`${selected}`)
                 .setDescription(cmdList)
-                .setFooter({ text: 'Olzhasstik Motorsports | Use /command to get started' })
+                .setFooter({ text: 'Use /command to get started' })
                 .setTimestamp();
 
             await i.update({ embeds: [categoryEmbed] });
