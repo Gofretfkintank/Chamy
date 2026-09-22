@@ -53,6 +53,11 @@ function warningEmbed(title, desc) {
 // MAIN EXPORT
 //--------------------------------
 module.exports = {
+    // This only ever works in OM's own server (see the guild check below), so
+    // it is registered there alone instead of globally — other servers never
+    // see /mcturn in their command list at all.
+    homeOnly: true,
+
     data: new SlashCommandBuilder()
         .setName('mcturn')
         .setDescription('Toggle the Minecraft server on or off'),
