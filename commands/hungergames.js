@@ -232,7 +232,7 @@ async function runSimulation(interaction, msg, game, delay) {
             `**Final standings:**\n` +
             `${game.tributes.map((t, i) => `${t.alive ? '🏆' : '☠️'} **${t.name}**`).reverse().join('\n')}`
         )
-        .setFooter({ text: 'Olzhasstik Motorsports — Game Night' });
+        .setFooter({ text: 'Game Night' });
 
     await msg.edit({ embeds: [winnerEmbed], components: [] });
 }
