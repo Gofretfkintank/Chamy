@@ -31,6 +31,8 @@ const Warn                = require('../models/Warn');
 const PendingRoleRestore  = require('../models/PendingRoleRestore');
 const { learnFromGuild, getKnowledgeContext } = require('../services/learner');
 const cfg                 = require('../lib/guildConfig');
+const perms                = require('../lib/perms');
+const { LEGACY_GUILD_ID }   = require('../lib/legacySeed');
 
 // ── Constants ─────────────────────────────────────────────────────────────
 const COMMANDER_ID         = '1097807544849809408';
