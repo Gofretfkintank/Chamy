@@ -35,12 +35,10 @@ const perms                = require('../lib/perms');
 const { LEGACY_GUILD_ID }   = require('../lib/legacySeed');
 
 // ── Constants ─────────────────────────────────────────────────────────────
-// Owner/co-owner tiers and the Paddock category now come from lib/perms and
-// this guild's own /config — see below. Only OWNER_ID stays a literal: it is
-// a second, specific person with Ommy's full-power tier everywhere the bot
-// runs, independent of any guild's own staff. Worth revisiting if the bot
-// ends up in servers that person has no relationship to.
-const OWNER_ID              = '1310904811100569681';
+// The bot operator ("Commander") comes from lib/perms (perms.isOwner). There
+// used to be a second hardcoded id here with the same full-power tier in
+// every guild the bot joined — removed: Ommy only needs to know who the
+// Commander is, not carry a standing bypass for anyone else.
 const CACHE_TTL_MS          = 2 * 60 * 60 * 1000;   // 2 hours
 
 // Ommy carries OM League knowledge, OM moderation tools and an OM persona, so
