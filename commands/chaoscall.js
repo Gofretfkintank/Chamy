@@ -302,7 +302,7 @@ const CHAOS_POOL = [
   { id: 82, category: '🏆 Points System', intensity: '🔥🔥🔥',
     affectsResults: 'auto', modifier: { type: 'zero_all' },
     title: 'No Points, Just Glory',
-    description: "This race awards zero coins. But the winner's name is immortalised in OM history!" },
+    description: "This race awards zero coins. But the winner's name is immortalised in league history!" },
   { id: 83, category: '📋 Race Rule', intensity: '🔥🔥', affectsResults: null,
     title: 'No Early Retirement',
     description: 'Any driver who retires before lap 10 receives a 5-place grid penalty for the next race.' },
