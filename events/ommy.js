@@ -31,13 +31,15 @@ const Warn                = require('../models/Warn');
 const PendingRoleRestore  = require('../models/PendingRoleRestore');
 const { learnFromGuild, getKnowledgeContext } = require('../services/learner');
 const cfg                 = require('../lib/guildConfig');
+const perms                = require('../lib/perms');
+const { LEGACY_GUILD_ID }   = require('../lib/legacySeed');
 
 // ── Constants ─────────────────────────────────────────────────────────────
-const COMMANDER_ID         = '1097807544849809408';
-const OWNER_ID             = '1310904811100569681';
-const CO_OWNER_ROLE_ID     = '1447144645489328199';
-const PADDOCK_CATEGORY_ID  = '1447142057385918546'; // general/daily channels
-const CACHE_TTL_MS         = 2 * 60 * 60 * 1000;   // 2 hours
+// The bot operator ("Commander") comes from lib/perms (perms.isOwner). There
+// used to be a second hardcoded id here with the same full-power tier in
+// every guild the bot joined — removed: Ommy only needs to know who the
+// Commander is, not carry a standing bypass for anyone else.
+const CACHE_TTL_MS          = 2 * 60 * 60 * 1000;   // 2 hours
 
 // Ommy carries OM League knowledge, OM moderation tools and an OM persona, so
 // it must not start talking the moment the bot joins somebody else's server.
@@ -74,8 +76,8 @@ function trackOmmyMessageId(id) {
     }
 }
 
-// ── Commander-only lock toggle — while true, Ommy never calls Gemini ───────
-let ommyLocked = false;
+// ── Operator lock toggle — per guild, bypasses Gemini entirely while locked ─
+const lockedGuilds = new Set();
 
 // ══════════════════════════════════════════════════════════════════════════
 // CLEAN DISPLAY NAME
@@ -533,9 +535,11 @@ async function buildBehaviorProfile(client, guildId, userId, displayName) {
 
         await guild.channels.fetch().catch(() => {});
 
-        // Prefer Paddock category; fall back to any text channels
+        // Prefer this guild's configured Paddock-equivalent category; fall back
+        // to any text channels when nothing is configured (e.g. a new server).
+        const paddockCategoryId = await cfg.get(guildId, 'categories:paddock');
         let scanChannels = guild.channels.cache.filter(c =>
-            c.isTextBased() && !c.isThread() && c.parentId === PADDOCK_CATEGORY_ID
+            c.isTextBased() && !c.isThread() && paddockCategoryId && c.parentId === paddockCategoryId
         );
         if (scanChannels.size === 0) {
             scanChannels = guild.channels.cache.filter(c => c.isTextBased() && !c.isThread()).first(8);
@@ -992,9 +996,10 @@ async function executeTool(name, args, client, guildId, userPrompt, message) {
             const target = await resolveTargetMember(guild, args.target || '');
             if (!target) return { error: 'not_found', message: `Could not find a member matching "${args.target}".` };
             if (target.id === message.author.id) return { error: 'invalid_target', message: 'You cannot ban yourself.' };
-            if (target.id === COMMANDER_ID)       return { error: 'invalid_target', message: 'Cannot ban the Commander.' };
+            if (perms.isOwner(target.id))         return { error: 'invalid_target', message: 'Cannot ban the bot operator.' };
 
-            const hasFullPower = message.author.id === OWNER_ID || message.member.roles.cache.has(CO_OWNER_ROLE_ID);
+            const banCoOwnerRoleId = await cfg.get(guild.id, 'staff:coOwnerRole');
+            const hasFullPower = perms.isOwner(message.author.id) || (!!banCoOwnerRoleId && message.member.roles.cache.has(banCoOwnerRoleId));
 
             if (!target.bannable && hasFullPower) {
                 if (target.id === guild.ownerId) return { error: 'invalid_target', message: 'Cannot ban the server owner.' };
@@ -1037,7 +1042,8 @@ async function executeTool(name, args, client, guildId, userPrompt, message) {
             if (!ms) return { error: 'invalid_duration', message: 'Invalid duration. Examples: 10m, 1h, 2d.' };
 
             const reason = `${args.reason || 'No reason provided'} (via Ommy, requested by ${message.author.tag})`;
-            const hasFullPower = message.author.id === OWNER_ID || message.member.roles.cache.has(CO_OWNER_ROLE_ID);
+            const muteCoOwnerRoleId = await cfg.get(guild.id, 'staff:coOwnerRole');
+            const hasFullPower = perms.isOwner(message.author.id) || (!!muteCoOwnerRoleId && message.member.roles.cache.has(muteCoOwnerRoleId));
 
             if (!target.moderatable && hasFullPower) {
                 if (target.id === guild.ownerId) return { error: 'invalid_target', message: 'Cannot moderate the server owner.' };
@@ -1102,7 +1108,8 @@ async function executeTool(name, args, client, guildId, userPrompt, message) {
             if (!target) return { error: 'not_found', message: `Could not find a member matching "${args.target}".` };
             if (target.id === message.author.id) return { error: 'invalid_target', message: 'You cannot kick yourself.' };
 
-            const hasFullPower = message.author.id === OWNER_ID || message.member.roles.cache.has(CO_OWNER_ROLE_ID);
+            const kickCoOwnerRoleId = await cfg.get(guild.id, 'staff:coOwnerRole');
+            const hasFullPower = perms.isOwner(message.author.id) || (!!kickCoOwnerRoleId && message.member.roles.cache.has(kickCoOwnerRoleId));
 
             if (!target.kickable && hasFullPower) {
                 if (target.id === guild.ownerId) return { error: 'invalid_target', message: 'Cannot kick the server owner.' };
@@ -1293,7 +1300,7 @@ async function executeTool(name, args, client, guildId, userPrompt, message) {
         }
 
         case 'learn_server': {
-            if (message.author.id !== COMMANDER_ID) {
+            if (!perms.isOwner(message.author.id)) {
                 return { error: 'permission_denied', message: 'Bu araç sadece Commander için.' };
             }
             // Fire-and-forget — background'da çalışır, ilerlemeyi kanala yazar
@@ -1345,7 +1352,16 @@ function toGeminiHistory(history) {
 // SYSTEM PROMPT
 // ══════════════════════════════════════════════════════════════════════════
 
-const OMMY_SYSTEM_PROMPT_BASE = `You are Ommy — the official mascot and support bot of Olzhasstik Motorsports (OM), an online sim-racing league.
+// The identity line and the OM-specific facts block below only apply in OM's
+// own server. Elsewhere Ommy is a generic assistant with no claim to being
+// OM's mascot and no OM facts to hand out — those would be wrong information
+// in an unrelated community's server.
+function ommySystemPromptBase(isHomeGuild) {
+    const identity = isHomeGuild
+        ? 'You are Ommy — the official mascot and support bot of Olzhasstik Motorsports (OM), an online sim-racing league.'
+        : 'You are Ommy — a friendly Discord assistant bot.';
+
+    return `${identity}
 
 PERSONA RULES:
 - You are NOT an AI. You are Ommy. Never admit otherwise.
@@ -1385,19 +1401,20 @@ MODERATION TOOLS (ban_member, mute_member, unmute_member, kick_member, unban_mem
 - clear_warnings is destructive and irreversible — if there's any doubt about intent, confirm with the user before calling it.
 - dm_member sends a real DM as if from staff — only send exactly what the requesting admin asked for, word for word in intent. Never compose your own persuasive, deceptive, or unrelated message content.
 
-OM LEAGUE KNOWLEDGE (no tool needed):
+${isHomeGuild ? `OM LEAGUE KNOWLEDGE (no tool needed):
 - Registration: For joining the league or a championship season, refer the user to the SERVER KNOWLEDGE BASE section above or use the scan_channel_messages tool to check the relevant channel — do NOT just say "/register" unless the knowledge base explicitly confirms that's the correct step.
 - The /register slash command is for creating a driver stats profile — it is NOT necessarily the same as applying for a championship season.
 - Ratings: PAC (25%) CRA (20%) DEF (15%) OVT (15%) CON (15%) EXP (10%). OVR = weighted average.
 - Penalties: 3 Warns → punishment. Jail = channel restriction. Ban = removal.
 - Roles: Commander > Admin > Driver > Member.
-- Discord: discord.gg/OMMR | IG: @olzhasstik_motorsports
+- Discord: discord.gg/OMMR | IG: @olzhasstik_motorsports` : `This server is not Olzhasstik Motorsports. Do not give OM's registration steps, rating formula, penalty system, role hierarchy, or Discord/Instagram links here — they belong to a different server and would be wrong information. Answer from this server's own SERVER KNOWLEDGE BASE below if it covers the question; otherwise say plainly that you don't have that information for this server.`}
 
 RESPONSE FORMAT:
 - 1-2 sentences for casual or simple questions. Longer only when there's real data or explanation to give.
 - **Bold** for names/terms, \`backticks\` for commands.
 - Tables only for leaderboard or stats comparisons — follow with a short opinionated take, don't leave a bare table.
 - Racing emojis only when the topic is actually racing.`;
+}
 
 // ══════════════════════════════════════════════════════════════════════════
 // SEND HELPER
@@ -1434,10 +1451,10 @@ async function sendOmmyReply(message, text) {
 // ROLE DETECTION
 // ══════════════════════════════════════════════════════════════════════════
 
-function detectRole(message) {
-    if (message.author.id === COMMANDER_ID) return 'commander';
-    if (message.author.id === OWNER_ID)     return 'admin';
-    if (message.member?.roles.cache.has(CO_OWNER_ROLE_ID)) return 'admin';
+async function detectRole(message) {
+    if (perms.isOwner(message.author.id)) return 'commander';
+    const coOwnerRoleId = await cfg.get(message.guildId, 'staff:coOwnerRole');
+    if (coOwnerRoleId && message.member?.roles.cache.has(coOwnerRoleId)) return 'admin';
     if (message.member?.permissions.has(PermissionsBitField.Flags.ManageMessages)) return 'admin';
     return 'member';
 }
@@ -1466,7 +1483,7 @@ module.exports = (client) => {
 
         // Wake / sleep, Commander only, per guild. Checked before anything else
         // so it still works in a server where Ommy is currently asleep.
-        if ((hasTypedMention || hasHeyOmmy) && message.author.id === COMMANDER_ID) {
+        if ((hasTypedMention || hasHeyOmmy) && perms.isOwner(message.author.id)) {
             if (WAKE_PHRASE.test(raw)) {
                 await cfg.set(message.guildId, 'ommy:enabled', '1').catch(() => {});
                 return message.reply('☕ Awake in this server. Say `nighty night` to send me back to sleep.');
@@ -1525,22 +1542,22 @@ module.exports = (client) => {
             return message.reply('❌ Message too long! Keep it under 1000 characters. 🏎️');
         }
 
-        // ── Commander-only lock toggle — bypasses Gemini entirely while locked ──
-        if (message.author.id === COMMANDER_ID) {
+        // ── Operator lock toggle — bypasses Gemini entirely for this guild ──
+        if (perms.isOwner(message.author.id)) {
             if (/\bunlock yourself\b/i.test(prompt)) {
-                ommyLocked = false;
-                return message.reply('🔓 Unlocked. Back online.');
+                lockedGuilds.delete(message.guildId);
+                return message.reply('🔓 Unlocked. Back online in this server.');
             }
             if (/\block yourself\b/i.test(prompt)) {
-                ommyLocked = true;
-                return message.reply('🔒 Locked by Gofret.');
+                lockedGuilds.add(message.guildId);
+                return message.reply('🔒 Locked in this server.');
             }
         }
-        if (ommyLocked) {
-            return message.reply("🔒 I'm locked by Gofret.");
+        if (lockedGuilds.has(message.guildId)) {
+            return message.reply("🔒 I'm locked here.");
         }
 
-        const role = detectRole(message);
+        const role = await detectRole(message);
 
         // Maintenance check
         if (role === 'member') {
@@ -1567,7 +1584,8 @@ module.exports = (client) => {
 
         const personaTag    = buildPersonaTag(omUser, role, nick);
         const knowledgeCtx  = await getKnowledgeContext(message.guildId);
-        const systemPrompt  = OMMY_SYSTEM_PROMPT_BASE + knowledgeCtx + personaTag;
+        const isHomeGuild   = message.guildId === LEGACY_GUILD_ID;
+        const systemPrompt  = ommySystemPromptBase(isHomeGuild) + knowledgeCtx + personaTag;
 
         // Conversation history
         const histKey = `${message.guildId}-${message.author.id}`;
