@@ -282,7 +282,7 @@ async function gameOver(interaction, msg, game, safePrize) {
         .setColor(0x8b0000)
         .setTitle('💸 Game Over!')
         .setDescription(`The team leaves with the safe haven prize of **£${safePrize.toLocaleString()}**.\n\nBetter luck next time!`)
-        .setFooter({ text: 'Olzhasstik Motorsports — Game Night' });
+        .setFooter({ text: 'Game Night' });
     await msg.edit({ embeds: [embed], components: [] });
 }
 
