@@ -172,7 +172,7 @@ module.exports = {
                 .setTitle(`${user1.username} vs ${user2.username}`)
                 .setImage(result.url)
                 .setColor(rating1 >= rating2 ? color1 : color2)
-                .setFooter({ text: 'Olzhasstik Motorsports' });
+                ;
 
             return interaction.editReply({ embeds: [embed] });
 
