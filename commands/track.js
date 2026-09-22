@@ -665,7 +665,7 @@ module.exports = {
           inline: false,
         }
       )
-      .setFooter({ text: 'Olzhasstik Motorsports • /track' })
+      .setFooter({ text: '/track' })
       .setTimestamp();
 
     //-- Resim varsa ekle ───────────────────────
