@@ -183,7 +183,7 @@ async function sendMaintenanceAnnouncement(guild, estimatedMinutes, isStart) {
                     `All systems are back online. The bot is fully operational.\n\n` +
                     `Thank you for your patience!`
                 )
-                .setFooter({ text: 'Olzhasstik Motorsports • Dev Team' })
+                .setFooter({ text: 'Dev Team' })
                 .setTimestamp();
         }
 
