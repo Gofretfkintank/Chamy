@@ -173,7 +173,7 @@ async function sendMaintenanceAnnouncement(guild, estimatedMinutes, isStart) {
                         `If a command you're trying to use is currently under maintenance, the bot will notify you automatically.`
                     ].filter(line => line !== null).join('\n')
                 )
-                .setFooter({ text: 'Olzhasstik Motorsports • Dev Team' })
+                .setFooter({ text: 'Dev Team' })
                 .setTimestamp();
         } else {
             embed = new EmbedBuilder()
