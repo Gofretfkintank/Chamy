@@ -138,7 +138,7 @@ module.exports = {
                 { name: '📁 Categories', value: Object.keys(categories).join('\n'), inline: true },
                 { name: 'System Status', value: '🟢 All systems operational', inline: true }
             )
-            .setFooter({ text: 'Olzhasstik Motorsports | System Manual' })
+            .setFooter({ text: 'System Manual' })
             .setTimestamp();
 
         const response = await interaction.reply({ embeds: [mainEmbed], components: [row] });
