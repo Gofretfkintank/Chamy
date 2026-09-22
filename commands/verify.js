@@ -135,7 +135,8 @@ module.exports = {
 
         // 3. Guarantee the gate channel itself stays visible to @everyone,
         //    even if its category ends up locked below.
-        await gateChannel.permissionOverwrites.edit(everyoneId, { ViewChannel: true }).catch(() => {});
+        await gateChannel.permissionOverwrites.edit(everyoneId, { ViewChannel: true })
+            .catch(err => console.error('[VERIFY] Could not open the gate channel to @everyone:', err.message));
 
         // 4. Sweep every other channel/category
         let locked = 0, skipped = 0, failed = 0;
