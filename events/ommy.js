@@ -1587,7 +1587,8 @@ module.exports = (client) => {
 
         const personaTag    = buildPersonaTag(omUser, role, nick);
         const knowledgeCtx  = await getKnowledgeContext(message.guildId);
-        const systemPrompt  = OMMY_SYSTEM_PROMPT_BASE + knowledgeCtx + personaTag;
+        const isHomeGuild   = message.guildId === LEGACY_GUILD_ID;
+        const systemPrompt  = ommySystemPromptBase(isHomeGuild) + knowledgeCtx + personaTag;
 
         // Conversation history
         const histKey = `${message.guildId}-${message.author.id}`;
