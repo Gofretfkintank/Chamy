@@ -1453,7 +1453,6 @@ async function sendOmmyReply(message, text) {
 
 async function detectRole(message) {
     if (perms.isOwner(message.author.id)) return 'commander';
-    if (message.author.id === OWNER_ID)    return 'admin';
     const coOwnerRoleId = await cfg.get(message.guildId, 'staff:coOwnerRole');
     if (coOwnerRoleId && message.member?.roles.cache.has(coOwnerRoleId)) return 'admin';
     if (message.member?.permissions.has(PermissionsBitField.Flags.ManageMessages)) return 'admin';
