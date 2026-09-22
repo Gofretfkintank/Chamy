@@ -1300,7 +1300,7 @@ async function executeTool(name, args, client, guildId, userPrompt, message) {
         }
 
         case 'learn_server': {
-            if (message.author.id !== COMMANDER_ID) {
+            if (!perms.isOwner(message.author.id)) {
                 return { error: 'permission_denied', message: 'Bu araç sadece Commander için.' };
             }
             // Fire-and-forget — background'da çalışır, ilerlemeyi kanala yazar
