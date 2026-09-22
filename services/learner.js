@@ -346,7 +346,7 @@ Categories: registration | general`;
             }
             if (images.length === 0) continue;
 
-            const system = `You are analyzing images from a Discord forum thread in a sim-racing league called Olzhasstik Motorsports (OM League).
+            const system = `You are analyzing images from a Discord forum thread in a sim-racing league.
 
 The thread may contain track maps, circuit layouts, car liveries, or other sim-racing visuals.
 
