@@ -1564,7 +1564,7 @@ module.exports = (client) => {
         if (role === 'member') {
             try {
                 const mDoc = await Maintenance.findById('singleton');
-                if (mDoc?.active) return message.reply('🔒 Ommy is in the pit lane for maintenance! Back soon. 🔧');
+                if (mDoc?.active) return message.reply('🔒 Chamy is in the pit lane for maintenance! Back soon. 🔧');
             } catch {}
         }
 
