@@ -999,7 +999,7 @@ async function executeTool(name, args, client, guildId, userPrompt, message) {
             if (perms.isOwner(target.id))         return { error: 'invalid_target', message: 'Cannot ban the bot operator.' };
 
             const banCoOwnerRoleId = await cfg.get(guild.id, 'staff:coOwnerRole');
-            const hasFullPower = message.author.id === OWNER_ID || (!!banCoOwnerRoleId && message.member.roles.cache.has(banCoOwnerRoleId));
+            const hasFullPower = perms.isOwner(message.author.id) || (!!banCoOwnerRoleId && message.member.roles.cache.has(banCoOwnerRoleId));
 
             if (!target.bannable && hasFullPower) {
                 if (target.id === guild.ownerId) return { error: 'invalid_target', message: 'Cannot ban the server owner.' };
