@@ -115,7 +115,7 @@ module.exports = {
                 .setColor(0xf5c518)
                 .setTitle('🏆 Race Over — Final Results')
                 .setDescription(`🏎️ **Winner:** <@${race.results[0].userId}> — **${race.results[0].time}ms**\n\n${board}`)
-                .setFooter({ text: 'Olzhasstik Motorsports — 5 Red Lights' });
+                .setFooter({ text: '5 Red Lights' });
 
             await msg.edit({ embeds: [resultEmbed], components: [] });
         });
