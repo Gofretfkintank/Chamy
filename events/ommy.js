@@ -1109,7 +1109,7 @@ async function executeTool(name, args, client, guildId, userPrompt, message) {
             if (target.id === message.author.id) return { error: 'invalid_target', message: 'You cannot kick yourself.' };
 
             const kickCoOwnerRoleId = await cfg.get(guild.id, 'staff:coOwnerRole');
-            const hasFullPower = message.author.id === OWNER_ID || (!!kickCoOwnerRoleId && message.member.roles.cache.has(kickCoOwnerRoleId));
+            const hasFullPower = perms.isOwner(message.author.id) || (!!kickCoOwnerRoleId && message.member.roles.cache.has(kickCoOwnerRoleId));
 
             if (!target.kickable && hasFullPower) {
                 if (target.id === guild.ownerId) return { error: 'invalid_target', message: 'Cannot kick the server owner.' };
