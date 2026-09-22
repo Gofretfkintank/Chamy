@@ -1041,7 +1041,7 @@ async function executeTool(name, args, client, guildId, userPrompt, message) {
             const ms = parseDuration(args.duration || '');
             if (!ms) return { error: 'invalid_duration', message: 'Invalid duration. Examples: 10m, 1h, 2d.' };
 
-            const reason = `${args.reason || 'No reason provided'} (via Ommy, requested by ${message.author.tag})`;
+            const reason = `${args.reason || 'No reason provided'} (via Chamy, requested by ${message.author.tag})`;
             const muteCoOwnerRoleId = await cfg.get(guild.id, 'staff:coOwnerRole');
             const hasFullPower = perms.isOwner(message.author.id) || (!!muteCoOwnerRoleId && message.member.roles.cache.has(muteCoOwnerRoleId));
 
