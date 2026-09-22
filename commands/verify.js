@@ -100,15 +100,22 @@ module.exports = {
             return interaction.editReply('❌ I need **Manage Roles** and **Manage Channels** permission to set this up.');
         }
 
-        // 1. Find or create the Member role
-        let memberRole = guild.roles.cache.find(r => r.name === MEMBER_ROLE_NAME);
+        // 1. Use the given role if one was passed; otherwise find or create the
+        //    default Member role, same as before.
+        const providedRole = interaction.options.getRole('role');
+        let memberRole = providedRole;
+        let roleWasCreated = false;
         if (!memberRole) {
-            memberRole = await guild.roles.create({
-                name: MEMBER_ROLE_NAME,
-                color: MEMBER_ROLE_COLOR,
-                hoist: true,
-                reason: 'OM Verify system setup'
-            });
+            memberRole = guild.roles.cache.find(r => r.name === MEMBER_ROLE_NAME);
+            if (!memberRole) {
+                memberRole = await guild.roles.create({
+                    name: MEMBER_ROLE_NAME,
+                    color: MEMBER_ROLE_COLOR,
+                    hoist: true,
+                    reason: 'OM Verify system setup'
+                });
+                roleWasCreated = true;
+            }
         }
 
         if (memberRole.position >= me.roles.highest.position) {
