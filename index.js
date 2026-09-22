@@ -39,7 +39,7 @@ const { onStartup: teamRadioStartup } = require('./commands/teamradio');
 const { checkExpiredInterviews }      = require('./commands/interview');
 const perms                           = require('./lib/perms');
 const cfg                             = require('./lib/guildConfig');
-const { seedLegacyGuild }             = require('./lib/legacySeed');
+const { seedLegacyGuild, LEGACY_GUILD_ID } = require('./lib/legacySeed');
 
 //--------------------------
 // CLIENT
