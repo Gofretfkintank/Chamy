@@ -1474,7 +1474,7 @@ module.exports = (client) => {
 
         // Wake / sleep, Commander only, per guild. Checked before anything else
         // so it still works in a server where Ommy is currently asleep.
-        if ((hasTypedMention || hasHeyOmmy) && message.author.id === COMMANDER_ID) {
+        if ((hasTypedMention || hasHeyOmmy) && perms.isOwner(message.author.id)) {
             if (WAKE_PHRASE.test(raw)) {
                 await cfg.set(message.guildId, 'ommy:enabled', '1').catch(() => {});
                 return message.reply('☕ Awake in this server. Say `nighty night` to send me back to sleep.');
