@@ -135,7 +135,8 @@ module.exports = {
 
         // 3. Guarantee the gate channel itself stays visible to @everyone,
         //    even if its category ends up locked below.
-        await gateChannel.permissionOverwrites.edit(everyoneId, { ViewChannel: true }).catch(() => {});
+        await gateChannel.permissionOverwrites.edit(everyoneId, { ViewChannel: true })
+            .catch(err => console.error('[VERIFY] Could not open the gate channel to @everyone:', err.message));
 
         // 4. Sweep every other channel/category
         let locked = 0, skipped = 0, failed = 0;
@@ -157,11 +158,34 @@ module.exports = {
             }
         }
 
+        // Before posting: confirm *I* can actually see and send here. Granting
+        // @everyone view access (step 3) says nothing about my own role — a
+        // channel-level (or category-inherited) deny on the bot's role still
+        // wins, and that is exactly what produced the "Missing Access" crash
+        // this replaces: a private gate channel where the bot's role was never
+        // granted View Channel / Send Messages.
+        const myGatePerms = gateChannel.permissionsFor(me);
+        if (!myGatePerms?.has(PermissionFlagsBits.ViewChannel) || !myGatePerms?.has(PermissionFlagsBits.SendMessages)) {
+            return interaction.editReply(
+                `⚠️ Locked **${locked}** channel(s) and set up ${memberRole}, but I don't have permission to post ` +
+                `in ${gateChannel} myself. Give my role **View Channel** and **Send Messages** there (or on its category), ` +
+                `then run **/verify** again to post the panel.`
+            );
+        }
+
         // 5. Post the public verify panel in the gate channel
-        await gateChannel.send({
-            embeds: [buildVerifyEmbed(guild.name)],
-            components: [buildVerifyRow(memberRole.id)]
-        });
+        try {
+            await gateChannel.send({
+                embeds: [buildVerifyEmbed(guild.name)],
+                components: [buildVerifyRow(memberRole.id)]
+            });
+        } catch (err) {
+            console.error('[VERIFY] Failed to post the panel:', err.message);
+            return interaction.editReply(
+                `⚠️ Locked **${locked}** channel(s) and set up ${memberRole}, but posting the panel in ${gateChannel} ` +
+                `failed: \`${err.message}\`. Fix my permissions there and run **/verify** again.`
+            );
+        }
 
         // 6. Confirm to the admin
         return interaction.editReply(
