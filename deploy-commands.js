@@ -11,15 +11,18 @@ require('dotenv').config();
 // guilds below. Never both at once: a command registered globally AND in a
 // guild shows up twice in that guild's picker.
 
-const commands = [];
+const commands         = [];
+const homeOnlyCommands = [];
 for (const file of fs.readdirSync('./commands').filter(f => f.endsWith('.js'))) {
     const command = require(`./commands/${file}`);
     if (!command?.data) {
         console.warn(`[SKIP] commands/${file} exports no "data" — not registering it.`);
         continue;
     }
-    commands.push(command.data.toJSON());
+    (command.homeOnly ? homeOnlyCommands : commands).push(command.data.toJSON());
 }
+
+const { LEGACY_GUILD_ID } = require('./lib/legacySeed');
 
 const devGuilds = (process.env.DEV_GUILD_IDS || [
     process.env.GUILD_ID_1,
