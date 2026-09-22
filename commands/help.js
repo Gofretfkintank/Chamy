@@ -130,7 +130,7 @@ module.exports = {
 
         const mainEmbed = new EmbedBuilder()
             .setColor(0x00D2FF)
-            .setTitle('Olzhasstik Motorsports | Help Center')
+            .setTitle('Help Center')
             .setDescription(
                 "Welcome to the official command manual. Select a category from the menu below to explore all available tools for our racing league and server management."
             )
