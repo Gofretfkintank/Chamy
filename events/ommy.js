@@ -1020,7 +1020,7 @@ async function executeTool(name, args, client, guildId, userPrompt, message) {
                 return { error: 'invalid_target', message: 'Only Commander/Owner/Co-Owner can ban staff members.' };
             }
 
-            const reason = `${args.reason || 'No reason provided'} (via Ommy, requested by ${message.author.tag})`;
+            const reason = `${args.reason || 'No reason provided'} (via Chamy, requested by ${message.author.tag})`;
             try {
                 await guild.members.ban(target.id, { reason });
                 return { success: true, banned: target.user.tag };
