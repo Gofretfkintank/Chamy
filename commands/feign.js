@@ -273,7 +273,7 @@ async function showResults(interaction, msg, game, players, shuffled) {
             `**Answers & Votes:**\n${answerReveal}\n\n` +
             (feignerCaught ? `🎉 Detectives win! The impostor was exposed.` : `😈 Feigner got away with it! Winner: <@${game.feignerId}>`)
         )
-        .setFooter({ text: 'Olzhasstik Motorsports — Game Night' });
+        .setFooter({ text: 'Game Night' });
 
     await msg.edit({ embeds: [resultEmbed], components: [] });
 }
