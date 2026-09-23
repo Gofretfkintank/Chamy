@@ -306,7 +306,7 @@ function normalizeStandings(list) {
 
 async function refreshServerProfile(guild, opts = {}) {
     const notify = typeof opts.onProgress === 'function' ? opts.onProgress : () => {};
-    if (!process.env.CLAUDE_API_KEY) return { error: 'CLAUDE_API_KEY is not set' };
+    if (!process.env.GEMINI_API_KEY) return { error: 'GEMINI_API_KEY is not set' };
     if (inFlight.has(guild.id)) return { error: 'a refresh is already running for this server' };
     inFlight.add(guild.id);
 
