@@ -24,7 +24,7 @@ async function callClaude(systemPrompt, userPrompt, maxTokens = 2048) {
 
 // images: [{ base64: string, mimeType: string }]
 async function callClaudeVision(systemPrompt, textPrompt, images = []) {
-    return gemma.generate(systemPrompt, textPrompt, images, 2048);
+    return gemma.generate(systemPrompt, textPrompt, images, 6144);
 }
 
 // ── Bir Discord attachment URL'sini base64'e çevir ─────────────────────────
