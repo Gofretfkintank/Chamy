@@ -435,6 +435,22 @@ client.on('interactionCreate', async interaction => {
         const command = client.commands.get(interaction.commandName);
         if (!command) return;
 
+        // Sunucuya sadece komut entegrasyonu eklenmiş, bot kullanıcısı girmemiş
+        // (davet linkinde "bot" scope'u yok / profildeki "Add App" butonu). Discord
+        // komutları yine yollar ama interaction.guild null olur — eskiden burada
+        // "Cannot read properties of null (reading 'members')" ile patlıyordu.
+        if (interaction.guildId && !interaction.guild) {
+            console.warn(`[NO BOT USER] /${interaction.commandName} in guild ${interaction.guildId} — commands installed but Chamy is not a member`);
+            return interaction.reply({
+                content: [
+                    `⚠️ **Only my commands were added to this server — I'm not actually in it.**`,
+                    `An admin needs to add me with the full invite (it includes the *bot* permission):`,
+                    `https://discord.com/oauth2/authorize?client_id=${client.user.id}&permissions=8836764281600832&integration_type=0&scope=applications.commands+bot`,
+                ].join('\n'),
+                ephemeral: true,
+            }).catch(() => {});
+        }
+
         try {
             const member = await interaction.guild.members.fetch(interaction.user.id);
             const isCommander = perms.isOwner(interaction.user.id);
