@@ -661,7 +661,7 @@ async function learnFromGuild(guild, channelFilter = 'all', onProgress = null) {
                 ...entries.filter(e => !e.isStaff),
             ];
 
-            const items = await learnFromMessages(channel.name, channel.id, ordered);
+            const items = await learnFromMessages(channel.name, channel.id, ordered, guild.name);
 
             if (items.length > 0) {
                 const { saved, updated } = await saveKnowledge(guild.id, items);
