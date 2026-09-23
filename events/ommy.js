@@ -1702,7 +1702,7 @@ ${isHomeGuild ? `OM LEAGUE KNOWLEDGE (no tool needed):
 - Ratings: PAC (25%) CRA (20%) DEF (15%) OVT (15%) CON (15%) EXP (10%). OVR = weighted average.
 - Penalties: 3 Warns → punishment. Jail = channel restriction. Ban = removal.
 - Roles: Commander > Admin > Driver > Member.
-- Discord: discord.gg/OMMR | IG: @olzhasstik_motorsports` : `This server is not Olzhasstik Motorsports. Do not give OM's registration steps, rating formula, penalty system, role hierarchy, or Discord/Instagram links here — they belong to a different server and would be wrong information. Answer from this server's own SERVER KNOWLEDGE BASE below if it covers the question; otherwise say plainly that you don't have that information for this server.`}
+- Discord: discord.gg/OMMR | IG: @olzhasstik_motorsports` : `This server is not Olzhasstik Motorsports. Do not give OM's registration steps, rating formula, penalty system, role hierarchy, or Discord/Instagram links here — they belong to a different server and would be wrong information. Answer from this server's own SERVER PROFILE and SERVER KNOWLEDGE BASE below if they cover the question; otherwise say plainly that you don't have that information for this server.`}
 
 RESPONSE FORMAT:
 - 1-2 sentences for casual or simple questions. Longer only when there's real data or explanation to give.
