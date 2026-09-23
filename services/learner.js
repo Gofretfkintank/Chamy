@@ -452,7 +452,7 @@ async function buildChannelDirectory(guild, guildId, onProgress = null) {
 
     if (!structureText.trim()) return { saved: 0, updated: 0 };
 
-    const system = `You are building a channel directory for a sim-racing Discord server called Olzhasstik Motorsports (OM).
+    const system = `You are building a channel directory for a sim-racing Discord server called "${guild.name}".
 
 You will receive a PARTIAL channel structure: category names, channel names, and their topics.
 
