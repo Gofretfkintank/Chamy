@@ -33,6 +33,9 @@ const SOURCE_WEIGHT           = { league: 1.0, league_madplus: 1.1, public: 0.35
 const WEIGHT_MIN              = 0.1;
 const WEIGHT_MAX              = 1.6;
 const LEAGUE_WINDOW_MS        = 90 * 24 * 60 * 60 * 1000;
+// Sunucu buyuklugu tavani: en buyuk Madcar ligi (M25) ~683 uye -> 700 = tam puan.
+// sqrt: 50 uye 0.27, 200 uye 0.53, 400 uye 0.76, 700+ uye 1.0
+const MEMBERS_FULL            = 700;
 const HISTORY_KEEP            = 30;
 
 // Seviye esikleri: 1..10
