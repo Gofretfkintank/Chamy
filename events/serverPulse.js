@@ -5,23 +5,24 @@
 // • Her mesajda: sunucunun saat (UTC) / gün histogramı, kişi başı mesaj sayısı,
 //   yarış kanallarındaki mesajlar ve "lobby / oda kodu / hostluyorum" tarzı
 //   host sinyalleri. Bellekte biriktirip 5 dakikada bir Mongo'ya toplu yazar.
-// • 30 dakikada bir: profili 12 saatten eski olan BİR sunucunun profilini
-//   services/serverProfile ile yeniler (tick başına tek sunucu — maliyet),
-//   sonra tüm profilleri Mad+ lobby'sine yollar (services/leagueSync, AI yok).
+// • 30 dakikada bir: profili 12 saatten eski olan en fazla 3 sunucunun
+//   profilini services/serverProfile ile yeniler (Gemma), sonra tüm profilleri
+//   Mad+ lobby'sine yollar (services/leagueSync, AI yok).
 //
-// Sadece Chamy'nin uyandırıldığı sunucularda çalışır (ommy:enabled = "1").
-// Commander'ın açmadığı bir sunucuda üyelerin aktivitesini saymıyoruz.
+// Bot'un olduğu HER sunucuda çalışır — Chamy'nin sohbet tarafı uyuyor olsa da
+// (ommy:enabled). Profil Mad+ Leagues sayfasını besliyor; Chamy'yi sunucusuna
+// eklemek zaten "ligimi listele" demek.
 // ─────────────────────────────────────────────────────────────────────────────
 
-const cfg            = require('../lib/guildConfig');
 const ServerActivity = require('../models/ServerActivity');
 const ServerProfile  = require('../models/ServerProfile');
 const leagueSync     = require('../services/leagueSync');
 const { refreshServerProfile, currentWeek, WEEK_MS } = require('../services/serverProfile');
 
-const FLUSH_MS         = 5 * 60 * 1000;
-const TICK_MS          = 30 * 60 * 1000;
-const REFRESH_EVERY_MS = 12 * 60 * 60 * 1000;
+const FLUSH_MS          = 5 * 60 * 1000;
+const TICK_MS           = 30 * 60 * 1000;
+const REFRESH_EVERY_MS  = 12 * 60 * 60 * 1000;
+const REFRESHES_PER_TICK = 3; // 40 sunucu ~7 saatte bir tur; Gemma free tier'a sığar
 
 const RACE_CHANNEL_RE = /(race|yar[ıi][şs]|lobby|lobi|session|event|etkinlik|host|grid|round|quali|s[ıi]ralama)/i;
 const HOST_RE = /(lobby|lobi\b|lobiyi|room\s*code|oda\s*(kodu|[şs]ifre|ismi|ad[ıi])|oda\s*a[çc]|[şs]ifre\s*:|password\s*:|pass\s*:|\bhost(ing|luyorum|layaca[gğ][ıi]m|l[ıi]yorum)?\b)/i;
@@ -29,9 +30,8 @@ const HOST_RE = /(lobby|lobi\b|lobiyi|room\s*code|oda\s*(kodu|[şs]ifre|ismi|ad[
 const userBuf  = new Map(); // `${guildId}|${week}|${userId}` -> { name, count, raceTalk, hostSignals, lastAt }
 const guildBuf = new Map(); // `${guildId}|${week}`          -> { hours: {}, days: {} }
 
-async function record(message) {
+function record(message) {
     if (!message.guild || message.author?.bot || message.webhookId) return;
-    if ((await cfg.get(message.guild.id, 'ommy:enabled')) !== '1') return;
 
     const now  = message.createdTimestamp || Date.now();
     const d    = new Date(now);
@@ -107,14 +107,19 @@ async function refreshTick(client) {
         await flush();
 
         if (process.env.GEMINI_API_KEY) {
-            for (const [, guild] of client.guilds.cache) {
-                if ((await cfg.get(guild.id, 'ommy:enabled')) !== '1') continue;
-                const p = await ServerProfile.findOne({ guildId: guild.id }, { refreshedAt: 1 }).lean().catch(() => null);
-                if (p?.refreshedAt && Date.now() - new Date(p.refreshedAt).getTime() < REFRESH_EVERY_MS) continue;
+            const profiles = await ServerProfile.find({}, { guildId: 1, refreshedAt: 1 }).lean().catch(() => []);
+            const lastRefresh = new Map(profiles.map(p => [p.guildId, p.refreshedAt ? new Date(p.refreshedAt).getTime() : 0]));
 
+            // En eski (hiç profili olmayan en önde) sunucular önce
+            const due = [...client.guilds.cache.values()]
+                .map(g => ({ guild: g, at: lastRefresh.get(g.id) || 0 }))
+                .filter(x => Date.now() - x.at >= REFRESH_EVERY_MS)
+                .sort((a, b) => a.at - b.at)
+                .slice(0, REFRESHES_PER_TICK);
+
+            for (const { guild } of due) {
                 const r = await refreshServerProfile(guild);
                 console.log(`[PULSE] profile ${guild.name}:`, r.error || `${r.events} events, ${r.hosts} hosts, ${r.standings} standings${r.warning ? ` (warning: ${r.warning})` : ''}`);
-                break; // tick başına tek sunucu
             }
         }
 
@@ -128,7 +133,7 @@ async function refreshTick(client) {
 
 module.exports = (client) => {
     client.on('messageCreate', (message) => {
-        record(message).catch(() => {});
+        try { record(message); } catch { /* sayaç asla bot'u düşürmesin */ }
     });
 
     const flushTimer = setInterval(() => { flush(); }, FLUSH_MS);

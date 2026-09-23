@@ -3,20 +3,19 @@
 // Chamy'nin öğrendiği sunucu profillerini Mad+ lobby sunucusuna yollar →
 // uygulamadaki More > Leagues sayfası. AI yok, tek bir HTTP isteği.
 //
-// Her seferinde TÜM liste gider (POST /v1/leagues/sync). Böylece Chamy'nin
-// uyutulduğu ya da bot'un çıktığı sunucu bir sonraki sync'te listeden düşer,
-// lobby yeniden başlarsa da en geç 30 dk'da tekrar dolar.
+// Her seferinde TÜM liste gider (POST /v1/leagues/sync): bot'un çıktığı
+// sunucu bir sonraki sync'te listeden düşer, lobby yeniden başlarsa da en geç
+// 30 dk'da tekrar dolar. Bot'un olduğu her sunucu listelenir — Chamy'nin
+// sohbet tarafı uyuyor olsa da.
 //
-// Sadece herkese açık olabilecek alanlar gider: sunucu adı/ikonu, üye sayısı,
-// owner adı, yarış düzeni, ligler, takvim, puan tablosu, host'lar, yoğun
-// gün/saat. Aktif üye listesi ve staff listesi GİTMEZ — o bilgi sadece
-// Chamy'nin o sunucunun içinde verdiği cevaplar için.
+// Sadece herkese açık olabilecek alanlar gider: sunucu adı/ikonu/banner'ı/
+// açıklaması, üye sayısı, owner adı, yarış düzeni, ligler, takvim, puan
+// tablosu, host'lar, yoğun gün/saat. Aktif üye listesi ve staff listesi GİTMEZ.
 //
 // Env: MADPLUS_LOBBY_URL        (https://madplus-lobby-production.up.railway.app)
 //      MADPLUS_LEAGUE_SYNC_KEY  (lobby servisindeki ile aynı değer)
 // ─────────────────────────────────────────────────────────────────────────────
 
-const cfg           = require('../lib/guildConfig');
 const ServerProfile = require('../models/ServerProfile');
 
 const WARN_EVERY_MS = 6 * 60 * 60 * 1000;
@@ -36,12 +35,24 @@ function lobbyBase() {
         .replace(/\/+$/, '');
 }
 
+// Banner: sunucu banner'ı (boost 2), yoksa davet arka planı (splash, boost 1),
+// yoksa discovery splash. Hiçbiri yoksa null — uygulama banner'ı hiç çizmez.
+function bannerOf(guild) {
+    const opts = { extension: 'png', size: 1024 };
+    return guild?.bannerURL?.(opts)
+        || guild?.splashURL?.(opts)
+        || guild?.discoverySplashURL?.(opts)
+        || null;
+}
+
 function snapshot(p, guild) {
     const now = Date.now();
     return {
         guildId:     p.guildId,
         name:        guild?.name || p.guildName || '',
-        iconUrl:     guild?.iconURL?.({ extension: 'png', size: 128 }) || null,
+        iconUrl:     guild?.iconURL?.({ extension: 'png', size: 256 }) || null,
+        bannerUrl:   bannerOf(guild),
+        description: guild?.description || null,
         memberCount: guild?.memberCount || p.memberCount || 0,
         ownerName:   p.ownerName || null,
         timezone:    p.timezone || null,
@@ -96,7 +107,6 @@ async function pushAll(client) {
     for (const p of profiles) {
         const guild = client.guilds.cache.get(p.guildId);
         if (!guild) continue; // bot artık o sunucuda değil
-        if ((await cfg.get(p.guildId, 'ommy:enabled')) !== '1') continue; // Chamy uyuyor
         leagues.push(snapshot(p, guild));
     }
 
