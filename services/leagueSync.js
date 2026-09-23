@@ -23,7 +23,11 @@ const ServerProfile = require('../models/ServerProfile');
 // Leagues'te listelenmez; Chamy orada yine normal çalışır.
 const SUPPORTED_GAMES = [/mad\s*car/i];
 
-const matchesGame = (text) => SUPPORTED_GAMES.some(re => re.test(text || ''));
+// NFKC: "𝙈𝙖𝙙𝙘𝙖𝙧 𝙍𝙖𝙘𝙞𝙣𝙜" gibi süslü unicode adlar düz "Madcar Racing" olur.
+const matchesGame = (text) => {
+    const plain = String(text || '').normalize('NFKC');
+    return SUPPORTED_GAMES.some(re => re.test(plain));
+};
 
 function racesSupportedGame(p, guild) {
     // 1) Gemma'nın çıkardığı oyun listesi varsa o belirleyici
