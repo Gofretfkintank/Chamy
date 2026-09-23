@@ -260,6 +260,7 @@ You get: server basics, staff list, activity statistics, Discord scheduled event
 
 Return ONLY valid JSON, nothing else:
 {
+  "games": ["the racing game(s) this server is actually about, e.g. Madcar Racing, GTA 4, FX Racer, Assetto Corsa — judge from server name/description, channel names and messages; [] if unclear"],
   "timezone": "IANA timezone the server clearly uses for its times (e.g. Europe/Istanbul), or null",
   "hosts": [{ "name": "name exactly as written", "detail": "what they host / short evidence", "confidence": 0.8 }],
   "raceSchedule": { "summary": "one sentence, e.g. Races are usually Wednesday and Sunday at 20:00 Turkey time", "days": ["Wed", "Sun"], "times": ["20:00 Europe/Istanbul"] },
@@ -351,6 +352,8 @@ async function refreshServerProfile(guild, opts = {}) {
         const facts = [
             `NOW (UTC): ${new Date().toISOString()}`,
             `SERVER: ${guild.name} (${guild.memberCount} members, locale ${guild.preferredLocale || 'unknown'})`,
+            `SERVER DESCRIPTION: ${guild.description || 'none'}`,
+            `CHANNELS: ${[...guild.channels.cache.values()].filter(c => !c.isThread?.()).map(c => c.name).slice(0, 80).join(', ')}`,
             `TIMEZONE HINT: ${tzHint || 'none'}`,
             `OWNER: ${owner ? owner.displayName : 'unknown'}`,
             `STAFF (from Discord roles): ${staff.map(s => `${s.name} [${s.detail}]`).join(', ') || 'none found'}`,
@@ -443,6 +446,7 @@ async function refreshServerProfile(guild, opts = {}) {
 
             const rs = parsed.raceSchedule || {};
             learned = {
+                games: (Array.isArray(parsed.games) ? parsed.games : []).map(g => str(g, 60)).filter(Boolean).slice(0, 6),
                 hosts: (Array.isArray(parsed.hosts) ? parsed.hosts : []).slice(0, 10).map(h => ({
                     userId: '', name: str(h?.name, 60), detail: str(h?.detail, 160), score: num(h?.confidence) ?? 0.7,
                 })).filter(h => h.name),
