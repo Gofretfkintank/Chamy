@@ -1,28 +1,45 @@
 // events/ratingSync.js
-// 20 dakikada bir SIRADAKI Madcar sunucusunun sonuc kanallarini okur
-// (tick basina tek sunucu, en fazla 12 mesaj -- Gemma free tier), yeni sonuc
-// geldiyse rating'i bastan hesaplar.
+// 20 dakikada bir:
+//  1) Mad+ lobisinden yeni yaris raporlarini ceker
+//  2) SIRADAKI Madcar sunucusunun sonuc kanallarini okur (tick basina tek
+//     sunucu, en fazla 12 mesaj -- Gemma free tier)
+//  3) rating'i bastan hesaplar (public yarislar 6 saat bekleme sonrasi girer,
+//     o yuzden yeni veri olmasa da her tick)
+//  4) rating'leri lobiye yollar (app profil ekrani)
 
 const { ingestGuild, recomputeAll } = require('../services/rating/ingest');
+const { pullReports, pushRatings } = require('../services/rating/madplus');
 
 const TICK_MS = 20 * 60 * 1000;
 const lastScan = new Map(); // guildId -> ms
 let running = false;
 
 async function tick(client) {
-    if (running || !process.env.GEMINI_API_KEY) return;
+    if (running) return;
     running = true;
     try {
-        const next = [...client.guilds.cache.values()]
-            .sort((a, b) => (lastScan.get(a.id) || 0) - (lastScan.get(b.id) || 0))[0];
-        if (!next) return;
-        lastScan.set(next.id, Date.now());
+        const pulled = await pullReports().catch(err => {
+            console.error('[RATING] report pull failed:', err.message);
+            return { added: 0 };
+        });
+        if (pulled.added) console.log(`[RATING] ${pulled.added} new Mad+ race reports`);
 
-        const r = await ingestGuild(next);
-        if (r.scanned) console.log(`[RATING] ${next.name}: ${r.scanned} checked, ${r.added} race results`);
-        if (r.added) {
-            const c = await recomputeAll();
-            console.log(`[RATING] recomputed: ${c.players} drivers from ${c.races} races`);
+        if (process.env.GEMINI_API_KEY) {
+            const next = [...client.guilds.cache.values()]
+                .sort((a, b) => (lastScan.get(a.id) || 0) - (lastScan.get(b.id) || 0))[0];
+            if (next) {
+                lastScan.set(next.id, Date.now());
+                const r = await ingestGuild(next).catch(err => {
+                    console.error(`[RATING] ${next.name} ingest failed:`, err.message);
+                    return { scanned: 0, added: 0 };
+                });
+                if (r.scanned) console.log(`[RATING] ${next.name}: ${r.scanned} checked, ${r.added} race results`);
+            }
+        }
+
+        const c = await recomputeAll();
+        if (c.races) {
+            await pushRatings().catch(err => console.error('[RATING] push failed:', err.message));
         }
     } catch (err) {
         console.error('[RATING] tick failed:', err.message);
