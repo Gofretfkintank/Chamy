@@ -122,6 +122,7 @@ async function pushAll(client) {
     for (const p of profiles) {
         const guild = client.guilds.cache.get(p.guildId);
         if (!guild) continue; // bot artık o sunucuda değil
+        if (!racesSupportedGame(p, guild)) continue; // Madcar dışı sunucu
         leagues.push(snapshot(p, guild));
     }
 
