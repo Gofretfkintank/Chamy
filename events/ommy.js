@@ -1576,9 +1576,36 @@ async function executeTool(name, args, client, guildId, userPrompt, message) {
                         `🧠 Artık bilgilerimi kullanabilirim!`
                     );
                 }
+                if (channelFilter === 'all') {
+                    const p = await serverProfile.refreshServerProfile(message.guild, { onProgress: notify });
+                    if (p.error) await notify(`❌ Profil güncellenemedi: ${p.error}`);
+                    else await notify(`📋 **Profil güncellendi** — ${p.staff} staff, ${p.hosts} host, ${p.events} etkinlik, ${p.standings} puan tablosu${p.timezone ? `, saat dilimi ${p.timezone}` : ''}.`);
+                }
             })().catch(err => console.error('[LEARN TOOL]', err.message));
 
             return { success: true, message: `Öğrenme başlatıldı! Kanalları tarıyorum (filtre: "${channelFilter}"), ilerlemeyi buraya yazacağım...` };
+        }
+
+        case 'get_server_profile': {
+            const data = await serverProfile.getServerProfile(guildId, String(args.section || 'all').toLowerCase());
+            return data || {
+                error:   'no_profile',
+                message: 'No profile learned for this server yet. The Commander can run refresh_server_profile, otherwise it fills in automatically within ~12h of waking me here.'
+            };
+        }
+
+        case 'refresh_server_profile': {
+            if (!perms.isOwner(message.author.id)) {
+                return { error: 'permission_denied', message: 'Bu araç sadece Commander için.' };
+            }
+            const timezone = args.timezone ? String(args.timezone).trim() : '';
+            ;(async () => {
+                const notify = (msg) => message.channel.send(msg).catch(() => {});
+                const p = await serverProfile.refreshServerProfile(message.guild, { onProgress: notify, timezone });
+                if (p.error) await notify(`❌ Profil güncellenemedi: ${p.error}`);
+                else await notify(`📋 **Profil güncellendi** — ${p.staff} staff, ${p.hosts} host, ${p.events} etkinlik, ${p.standings} puan tablosu${p.timezone ? `, saat dilimi ${p.timezone}` : ''}.${p.warning ? `\n⚠️ ${p.warning}` : ''}`);
+            })().catch(err => console.error('[PROFILE TOOL]', err.message));
+            return { success: true, message: 'Profile refresh started — progress is posted in this channel.' };
         }
 
         default:
