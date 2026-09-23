@@ -18,6 +18,21 @@
 
 const ServerProfile = require('../models/ServerProfile');
 
+// Mad+'ın desteklediği oyunlar. Başka oyun eklenince buraya bir regex eklenir.
+// Chamy'nin olduğu ama bu oyunları oynamayan sunucular (GTA, FX Racer...) Mad+
+// Leagues'te listelenmez; Chamy orada yine normal çalışır.
+const SUPPORTED_GAMES = [/mad\s*car/i];
+
+const matchesGame = (text) => SUPPORTED_GAMES.some(re => re.test(text || ''));
+
+function racesSupportedGame(p, guild) {
+    // 1) Gemma'nın çıkardığı oyun listesi varsa o belirleyici
+    if (Array.isArray(p.games) && p.games.length) return p.games.some(matchesGame);
+    // 2) Henüz yoksa (profil eski): ad, açıklama ve kanal adlarında oyun geçiyor mu
+    const channels = [...(guild?.channels?.cache?.values() || [])].map(c => c.name).join(' ');
+    return matchesGame(`${guild?.name || p.guildName} ${guild?.description || ''} ${channels}`);
+}
+
 const WARN_EVERY_MS = 6 * 60 * 60 * 1000;
 let lastWarnAt = 0;
 
