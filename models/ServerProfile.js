@@ -51,6 +51,7 @@ const serverProfileSchema = new Schema({
     memberCount:    { type: Number, default: 0 },
     timezone:       { type: String, default: '' },     // IANA, örn. Europe/Istanbul
     timezoneManual: { type: Boolean, default: false }, // Commander sabitlediyse AI ezmez
+    games:          { type: [String], default: [] },   // sunucunun oynadığı oyunlar (Gemma) — Mad+ Leagues filtresi
 
     staff:         { type: [personSchema], default: [] },
     hosts:         { type: [personSchema], default: [] },
