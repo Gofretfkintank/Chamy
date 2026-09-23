@@ -18,7 +18,7 @@
 //     kadro     : sqrt((N-1)/9), en fazla 1               (10+ kisi = tam)
 //     prestij   : (0.35 + 0.45 x aktiflik + 0.2 x sunucu buyuklugu) x lig rating'i
 //                 aktiflik = son 90 gunde ligde yarisan surucu / 30 (en fazla 1)
-//                 buyukluk = log10(uye) / 3 (1000 uye = tam)
+//                 buyukluk = sqrt(uye / 700), en fazla 1 (M25 ~683 uye = tam)
 //                 lig rating'i = o aktif suruculerin ort. rating'i / 1000 (0.7..1.4)
 //                 public odalarda 1
 //   W en az 0.1, en fazla 1.6.
