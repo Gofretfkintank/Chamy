@@ -260,6 +260,7 @@ You get: server basics, staff list, activity statistics, Discord scheduled event
 
 Return ONLY valid JSON, nothing else:
 {
+  "games": ["the racing game(s) this server is actually about, e.g. Madcar Racing, GTA 4, FX Racer, Assetto Corsa — judge from server name/description, channel names and messages; [] if unclear"],
   "timezone": "IANA timezone the server clearly uses for its times (e.g. Europe/Istanbul), or null",
   "hosts": [{ "name": "name exactly as written", "detail": "what they host / short evidence", "confidence": 0.8 }],
   "raceSchedule": { "summary": "one sentence, e.g. Races are usually Wednesday and Sunday at 20:00 Turkey time", "days": ["Wed", "Sun"], "times": ["20:00 Europe/Istanbul"] },
