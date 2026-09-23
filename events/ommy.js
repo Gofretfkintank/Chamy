@@ -833,6 +833,16 @@ const BASE_TOOL_DECLARATIONS = [
             },
             required: ['target', 'reason']
         }
+    },
+    {
+        name:        'get_server_profile',
+        description: "Full learned profile of THIS server: owner, staff, who hosts races, usual race days/times, upcoming calendar (with Discord timestamps), latest championship standings (all rows), leagues, most active members, busiest hours. Use for questions like 'who owns this server', 'who hosts races', 'when is the next race', 'what are the standings', 'when is this server active', 'who is active here'. If it returns no_profile or lacks the answer, fall back to scan_channel_messages / get_channel_image.",
+        parameters: {
+            type: 'object',
+            properties: {
+                section: { type: 'string', description: 'Optional: only one part — "calendar", "standings", "people", or "all" (default).' }
+            }
+        }
     }
 ];
 
