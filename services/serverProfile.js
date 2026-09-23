@@ -352,6 +352,8 @@ async function refreshServerProfile(guild, opts = {}) {
         const facts = [
             `NOW (UTC): ${new Date().toISOString()}`,
             `SERVER: ${guild.name} (${guild.memberCount} members, locale ${guild.preferredLocale || 'unknown'})`,
+            `SERVER DESCRIPTION: ${guild.description || 'none'}`,
+            `CHANNELS: ${[...guild.channels.cache.values()].filter(c => !c.isThread?.()).map(c => c.name).slice(0, 80).join(', ')}`,
             `TIMEZONE HINT: ${tzHint || 'none'}`,
             `OWNER: ${owner ? owner.displayName : 'unknown'}`,
             `STAFF (from Discord roles): ${staff.map(s => `${s.name} [${s.detail}]`).join(', ') || 'none found'}`,
