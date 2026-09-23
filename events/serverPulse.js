@@ -6,7 +6,8 @@
 //   yarış kanallarındaki mesajlar ve "lobby / oda kodu / hostluyorum" tarzı
 //   host sinyalleri. Bellekte biriktirip 5 dakikada bir Mongo'ya toplu yazar.
 // • 30 dakikada bir: profili 12 saatten eski olan BİR sunucunun profilini
-//   services/serverProfile ile yeniler (tick başına tek sunucu — maliyet).
+//   services/serverProfile ile yeniler (tick başına tek sunucu — maliyet),
+//   sonra tüm profilleri Mad+ lobby'sine yollar (services/leagueSync, AI yok).
 //
 // Sadece Chamy'nin uyandırıldığı sunucularda çalışır (ommy:enabled = "1").
 // Commander'ın açmadığı bir sunucuda üyelerin aktivitesini saymıyoruz.
@@ -15,6 +16,7 @@
 const cfg            = require('../lib/guildConfig');
 const ServerActivity = require('../models/ServerActivity');
 const ServerProfile  = require('../models/ServerProfile');
+const leagueSync     = require('../services/leagueSync');
 const { refreshServerProfile, currentWeek, WEEK_MS } = require('../services/serverProfile');
 
 const FLUSH_MS         = 5 * 60 * 1000;
@@ -99,19 +101,24 @@ async function flush() {
 
 let ticking = false;
 async function refreshTick(client) {
-    if (ticking || !process.env.GEMINI_API_KEY) return;
+    if (ticking) return;
     ticking = true;
     try {
         await flush();
-        for (const [, guild] of client.guilds.cache) {
-            if ((await cfg.get(guild.id, 'ommy:enabled')) !== '1') continue;
-            const p = await ServerProfile.findOne({ guildId: guild.id }, { refreshedAt: 1 }).lean().catch(() => null);
-            if (p?.refreshedAt && Date.now() - new Date(p.refreshedAt).getTime() < REFRESH_EVERY_MS) continue;
 
-            const r = await refreshServerProfile(guild);
-            console.log(`[PULSE] profile ${guild.name}:`, r.error || `${r.events} events, ${r.hosts} hosts, ${r.standings} standings${r.warning ? ` (warning: ${r.warning})` : ''}`);
-            break; // tick başına tek sunucu
+        if (process.env.GEMINI_API_KEY) {
+            for (const [, guild] of client.guilds.cache) {
+                if ((await cfg.get(guild.id, 'ommy:enabled')) !== '1') continue;
+                const p = await ServerProfile.findOne({ guildId: guild.id }, { refreshedAt: 1 }).lean().catch(() => null);
+                if (p?.refreshedAt && Date.now() - new Date(p.refreshedAt).getTime() < REFRESH_EVERY_MS) continue;
+
+                const r = await refreshServerProfile(guild);
+                console.log(`[PULSE] profile ${guild.name}:`, r.error || `${r.events} events, ${r.hosts} hosts, ${r.standings} standings${r.warning ? ` (warning: ${r.warning})` : ''}`);
+                break; // tick başına tek sunucu
+            }
         }
+
+        await leagueSync.pushAll(client).catch(err => console.error('[LEAGUE SYNC] push failed:', err.message));
     } catch (err) {
         console.error('[PULSE] refresh tick failed:', err.message);
     } finally {
