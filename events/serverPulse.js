@@ -142,6 +142,12 @@ module.exports = (client) => {
     const start = () => {
         setTimeout(() => refreshTick(client), 2 * 60 * 1000).unref?.();
         setInterval(() => refreshTick(client), TICK_MS).unref?.();
+        // Lobby listeyi bellekte tutuyor; lobby deploy olunca boşalıyor. Push ucuz
+        // (tek HTTP, AI yok), o yüzden 5 dk'da bir — liste en fazla 5 dk boş kalır.
+        setTimeout(() => leagueSync.pushAll(client).catch(() => {}), 20 * 1000).unref?.();
+        setInterval(() => {
+            leagueSync.pushAll(client).catch(err => console.error('[LEAGUE SYNC] push failed:', err.message));
+        }, 5 * 60 * 1000).unref?.();
     };
     if (client.isReady?.()) start();
     else client.once('ready', start);
