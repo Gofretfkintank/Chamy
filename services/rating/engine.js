@@ -79,7 +79,7 @@ function leaguePrestige(race, players, guildActivity) {
         ? active.reduce((s, k) => s + (players.get(k)?.rating ?? START_RATING), 0) / active.length
         : START_RATING;
     const activity = Math.min(1, active.length / 30);
-    const size = race.memberCount > 1 ? Math.min(1, Math.log10(race.memberCount) / 3) : 0;
+    const size = race.memberCount > 0 ? Math.min(1, Math.sqrt(race.memberCount / MEMBERS_FULL)) : 0;
     const ratingFactor = clamp(avg / START_RATING, 0.7, 1.4);
     return {
         prestige: clamp((0.35 + 0.45 * activity + 0.2 * size) * ratingFactor, 0.3, 1.4),
