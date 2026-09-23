@@ -726,6 +726,14 @@ client.on('prefixUpdate', (guildId) => {
     prefixCache.delete(guildId);
 });
 
+// Sunucuya girdi/çıktı — "bot gelmedi" gibi sorunlar loglarda görünsün.
+client.on('guildCreate', guild => {
+    console.log(`[GUILD] ➕ Joined "${guild.name}" (${guild.id}) — ${guild.memberCount} members`);
+});
+client.on('guildDelete', guild => {
+    console.log(`[GUILD] ➖ Left/removed from "${guild.name || 'unknown'}" (${guild.id})`);
+});
+
 //--------------------------
 // PREFIX COMMAND HANDLER
 //--------------------------
