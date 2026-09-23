@@ -80,11 +80,13 @@ async function pullReports() {
         );
         if (out.upsertedCount) added++;
 
-        // Raporu yollayanin kendi satiri -> Madcar ID = bu Discord hesabi
-        const mine = entries.find(e => e.local && e.madcarId);
-        if (mine && r.reporterDiscordId) {
+        // Raporu yollayanin kendi satiri -> bu Discord hesabi. Kendi Madcar ID'miz
+        // her zaman gorunmuyor (kendi ozelliklerimiz giden trafikte); o zaman
+        // oyun ici isimle bagla.
+        const mine = entries.find(e => e.local);
+        if (mine && r.reporterDiscordId && (mine.madcarId || norm(mine.nick))) {
             await MadcarLink.updateOne(
-                { madcarId: mine.madcarId },
+                { madcarId: mine.madcarId || `nick:${norm(mine.nick)}` },
                 { $set: { discordId: String(r.reporterDiscordId), nick: mine.nick } },
                 { upsert: true },
             );
