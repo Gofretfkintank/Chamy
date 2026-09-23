@@ -1079,6 +1079,16 @@ const COMMANDER_TOOL_DECLARATIONS = [
             }
         }
     },
+    {
+        name:        'refresh_server_profile',
+        description: "Re-learn THIS server's profile now (owner, staff, race hosts, race schedule, calendar, standings, activity) instead of waiting for the automatic 12h refresh. Commander only. Triggers: \"refresh profile\", \"profili güncelle\", \"takvimi / puan tablosunu yeniden öğren\". Can also pin the server's timezone.",
+        parameters: {
+            type: 'object',
+            properties: {
+                timezone: { type: 'string', description: 'Optional IANA timezone to pin for this server, e.g. "Europe/Istanbul". Only when the commander actually states one.' }
+            }
+        }
+    },
 ];
 
 function getToolsForRole(role) {
