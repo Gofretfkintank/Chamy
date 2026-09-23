@@ -99,7 +99,7 @@ async function fetchImageAsBase64(url) {
 }
 
 // ── Tek kanaldan bilgi çıkar ────────────────────────────────────────────────
-async function learnFromMessages(channelName, channelId, messages) {
+async function learnFromMessages(channelName, channelId, messages, guildName = 'a sim-racing community') {
     if (messages.length === 0) return [];
 
     const messagesText = messages
@@ -107,7 +107,7 @@ async function learnFromMessages(channelName, channelId, messages) {
         .map(m => `[${m.isStaff ? 'STAFF' : 'ÜYE'}] ${m.author}: ${m.content}`)
         .join('\n');
 
-    const system = `You are a knowledge extraction assistant for Olzhasstik Motorsports (OM) Discord server.
+    const system = `You are a knowledge extraction assistant for the Discord server "${guildName}".
 You extract permanent, structured facts about the server from Discord channel messages.
 
 EXTRACT:
@@ -294,7 +294,7 @@ async function scanForumChannel(forumChannel, guildId, onProgress = null) {
 
     // ── Text-only thread'ler (başvuru formları) ────────────────────────────
     if (textThreads.length > 0) {
-        const system = `You are extracting structured knowledge from a Discord forum channel in a sim-racing league called Olzhasstik Motorsports (OM League).
+        const system = `You are extracting structured knowledge from a Discord forum channel in the sim-racing Discord server "${forumChannel.guild.name}".
 
 Each "thread" is a driver or team application. Extract facts to answer:
 - "What number does X prefer?"
@@ -346,7 +346,7 @@ Categories: registration | general`;
             }
             if (images.length === 0) continue;
 
-            const system = `You are analyzing images from a Discord forum thread in a sim-racing league called Olzhasstik Motorsports (OM League).
+            const system = `You are analyzing images from a Discord forum thread in the sim-racing Discord server "${forumChannel.guild.name}".
 
 The thread may contain track maps, circuit layouts, car liveries, or other sim-racing visuals.
 
@@ -452,7 +452,7 @@ async function buildChannelDirectory(guild, guildId, onProgress = null) {
 
     if (!structureText.trim()) return { saved: 0, updated: 0 };
 
-    const system = `You are building a channel directory for a sim-racing Discord server called Olzhasstik Motorsports (OM).
+    const system = `You are building a channel directory for a sim-racing Discord server called "${guild.name}".
 
 You will receive a PARTIAL channel structure: category names, channel names, and their topics.
 
@@ -661,7 +661,7 @@ async function learnFromGuild(guild, channelFilter = 'all', onProgress = null) {
                 ...entries.filter(e => !e.isStaff),
             ];
 
-            const items = await learnFromMessages(channel.name, channel.id, ordered);
+            const items = await learnFromMessages(channel.name, channel.id, ordered, guild.name);
 
             if (items.length > 0) {
                 const { saved, updated } = await saveKnowledge(guild.id, items);
@@ -750,4 +750,4 @@ async function getKnowledgeContext(guildId) {
     }
 }
 
-module.exports = { learnFromGuild, getKnowledgeContext, saveKnowledge };
+module.exports = { learnFromGuild, getKnowledgeContext, saveKnowledge, callClaude, callClaudeVision, fetchImageAsBase64 };

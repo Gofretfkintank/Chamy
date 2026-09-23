@@ -36,6 +36,7 @@ const PendingRoleRestore  = require('../models/PendingRoleRestore');
 const RacingConfig        = require('../models/RacingConfig');
 const Sanction            = require('../models/Sanction');
 const { learnFromGuild, getKnowledgeContext } = require('../services/learner');
+const serverProfile       = require('../services/serverProfile');
 const cfg                 = require('../lib/guildConfig');
 const perms                = require('../lib/perms');
 const { LEGACY_GUILD_ID }   = require('../lib/legacySeed');
@@ -832,6 +833,16 @@ const BASE_TOOL_DECLARATIONS = [
             },
             required: ['target', 'reason']
         }
+    },
+    {
+        name:        'get_server_profile',
+        description: "Full learned profile of THIS server: owner, staff, who hosts races, usual race days/times, upcoming calendar (with Discord timestamps), latest championship standings (all rows), leagues, most active members, busiest hours. Use for questions like 'who owns this server', 'who hosts races', 'when is the next race', 'what are the standings', 'when is this server active', 'who is active here'. If it returns no_profile or lacks the answer, fall back to scan_channel_messages / get_channel_image.",
+        parameters: {
+            type: 'object',
+            properties: {
+                section: { type: 'string', description: 'Optional: only one part — "calendar", "standings", "people", or "all" (default).' }
+            }
+        }
     }
 ];
 
@@ -1065,6 +1076,16 @@ const COMMANDER_TOOL_DECLARATIONS = [
                     type:        'string',
                     description: '"all" tüm kanallar için, veya kanal adı substring\'i (örn: "kural", "duyuru", "genel")'
                 }
+            }
+        }
+    },
+    {
+        name:        'refresh_server_profile',
+        description: "Re-learn THIS server's profile now (owner, staff, race hosts, race schedule, calendar, standings, activity) instead of waiting for the automatic 12h refresh. Commander only. Triggers: \"refresh profile\", \"profili güncelle\", \"takvimi / puan tablosunu yeniden öğren\". Can also pin the server's timezone.",
+        parameters: {
+            type: 'object',
+            properties: {
+                timezone: { type: 'string', description: 'Optional IANA timezone to pin for this server, e.g. "Europe/Istanbul". Only when the commander actually states one.' }
             }
         }
     },
@@ -1555,9 +1576,36 @@ async function executeTool(name, args, client, guildId, userPrompt, message) {
                         `🧠 Artık bilgilerimi kullanabilirim!`
                     );
                 }
+                if (channelFilter === 'all') {
+                    const p = await serverProfile.refreshServerProfile(message.guild, { onProgress: notify });
+                    if (p.error) await notify(`❌ Profil güncellenemedi: ${p.error}`);
+                    else await notify(`📋 **Profil güncellendi** — ${p.staff} staff, ${p.hosts} host, ${p.events} etkinlik, ${p.standings} puan tablosu${p.timezone ? `, saat dilimi ${p.timezone}` : ''}.`);
+                }
             })().catch(err => console.error('[LEARN TOOL]', err.message));
 
             return { success: true, message: `Öğrenme başlatıldı! Kanalları tarıyorum (filtre: "${channelFilter}"), ilerlemeyi buraya yazacağım...` };
+        }
+
+        case 'get_server_profile': {
+            const data = await serverProfile.getServerProfile(guildId, String(args.section || 'all').toLowerCase());
+            return data || {
+                error:   'no_profile',
+                message: 'No profile learned for this server yet. The Commander can run refresh_server_profile, otherwise it fills in automatically within ~12h of waking me here.'
+            };
+        }
+
+        case 'refresh_server_profile': {
+            if (!perms.isOwner(message.author.id)) {
+                return { error: 'permission_denied', message: 'Bu araç sadece Commander için.' };
+            }
+            const timezone = args.timezone ? String(args.timezone).trim() : '';
+            ;(async () => {
+                const notify = (msg) => message.channel.send(msg).catch(() => {});
+                const p = await serverProfile.refreshServerProfile(message.guild, { onProgress: notify, timezone });
+                if (p.error) await notify(`❌ Profil güncellenemedi: ${p.error}`);
+                else await notify(`📋 **Profil güncellendi** — ${p.staff} staff, ${p.hosts} host, ${p.events} etkinlik, ${p.standings} puan tablosu${p.timezone ? `, saat dilimi ${p.timezone}` : ''}.${p.warning ? `\n⚠️ ${p.warning}` : ''}`);
+            })().catch(err => console.error('[PROFILE TOOL]', err.message));
+            return { success: true, message: 'Profile refresh started — progress is posted in this channel.' };
         }
 
         default:
@@ -1625,8 +1673,10 @@ REAL-TIME STYLE MIRRORING (apply to every reply, based on the user's current mes
 DATA RULES:
 - NEVER invent driver names, ratings, scores, or stats.
 - NEVER alias or parenthesize a username with a display name or real name you saw somewhere else (e.g. do NOT write "Samuel (birdnet.)" unless the tool literally returned both). Use ONLY the exact username string the tool gave you.
-- For OM League data (standings, ratings, results, images): use tools.
-- For other sim-racing leagues: "I only have data for OM League — check their own resources."
+- For THIS server's own league info (owner, staff, who hosts races, usual race days/times, calendar, standings, who's active, busiest hours): use the SERVER PROFILE section below first; call get_server_profile for the full calendar/standings or when the summary doesn't cover it. If the profile is several days old, say so.
+- When you mention a date/time from the profile, paste its Discord timestamp exactly as given (e.g. <t:1790000000:F> or <t:1790000000:R>) — Discord shows every reader their own local time. Never convert timezones yourself.
+- OM driver ratings/stats (get_leaderboard, get_driver_stats, get_panel_stats) come from OM League's own database — only meaningful in OM's server.
+- For leagues that aren't run in this server: "I only know what this server's own channels say — check their own resources."
 - For general motorsport, F1, real-world racing, sim-racing tips: answer from your own knowledge.
 - If data feed fails: "Data feed's down, try again in a moment."
 - If a user sends an image in their message, you can see it — describe and analyze it directly without needing to call any tool.
@@ -1652,7 +1702,7 @@ ${isHomeGuild ? `OM LEAGUE KNOWLEDGE (no tool needed):
 - Ratings: PAC (25%) CRA (20%) DEF (15%) OVT (15%) CON (15%) EXP (10%). OVR = weighted average.
 - Penalties: 3 Warns → punishment. Jail = channel restriction. Ban = removal.
 - Roles: Commander > Admin > Driver > Member.
-- Discord: discord.gg/OMMR | IG: @olzhasstik_motorsports` : `This server is not Olzhasstik Motorsports. Do not give OM's registration steps, rating formula, penalty system, role hierarchy, or Discord/Instagram links here — they belong to a different server and would be wrong information. Answer from this server's own SERVER KNOWLEDGE BASE below if it covers the question; otherwise say plainly that you don't have that information for this server.`}
+- Discord: discord.gg/OMMR | IG: @olzhasstik_motorsports` : `This server is not Olzhasstik Motorsports. Do not give OM's registration steps, rating formula, penalty system, role hierarchy, or Discord/Instagram links here — they belong to a different server and would be wrong information. Answer from this server's own SERVER PROFILE and SERVER KNOWLEDGE BASE below if they cover the question; otherwise say plainly that you don't have that information for this server.`}
 
 RESPONSE FORMAT:
 - 1-2 sentences for casual or simple questions. Longer only when there's real data or explanation to give.
@@ -1830,8 +1880,9 @@ module.exports = (client) => {
 
         const personaTag    = buildPersonaTag(omUser, role, nick);
         const knowledgeCtx  = await getKnowledgeContext(message.guildId);
+        const profileCtx    = await serverProfile.getServerProfileContext(message.guildId);
         const isHomeGuild   = message.guildId === LEGACY_GUILD_ID;
-        const systemPrompt  = ommySystemPromptBase(isHomeGuild) + knowledgeCtx + personaTag;
+        const systemPrompt  = ommySystemPromptBase(isHomeGuild) + profileCtx + knowledgeCtx + personaTag;
 
         // Conversation history
         const histKey = `${message.guildId}-${message.author.id}`;
