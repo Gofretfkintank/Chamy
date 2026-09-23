@@ -193,9 +193,10 @@ async function ingestGuild(guild) {
     return { scanned, added };
 }
 
-/** Tum RaceResult'lardan rating'i bastan kurar, MadRating'e yazar. */
+/** Lig sonuclari + Mad+ raporlarindan rating'i bastan kurar, MadRating'e yazar. */
 async function recomputeAll() {
-    const races = await RaceResult.find({ ignored: { $ne: true } }).lean();
+    const leagueRaces = await RaceResult.find({ ignored: { $ne: true } }).lean();
+    const races = await require('./madplus').buildRaces(leagueRaces);
     const { players } = engine.recompute(races);
 
     const ops = [...players.values()].map(p => ({
