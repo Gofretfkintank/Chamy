@@ -45,6 +45,8 @@ module.exports = {
 
             try {
                 const r = await syncWorldRecords(channel);
+                require('../services/recordsSync').pushRecords()
+                    .catch(err => console.error('[WR PUSH]', err.message));
                 if (!r.tracks) {
                     return interaction.editReply(`⚠️ No world records found in <#${channel.id}>.`);
                 }
