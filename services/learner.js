@@ -750,4 +750,4 @@ async function getKnowledgeContext(guildId) {
     }
 }
 
-module.exports = { learnFromGuild, getKnowledgeContext, saveKnowledge };
+module.exports = { learnFromGuild, getKnowledgeContext, saveKnowledge, callClaude, callClaudeVision, fetchImageAsBase64 };
