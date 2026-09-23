@@ -99,7 +99,7 @@ async function fetchImageAsBase64(url) {
 }
 
 // ── Tek kanaldan bilgi çıkar ────────────────────────────────────────────────
-async function learnFromMessages(channelName, channelId, messages) {
+async function learnFromMessages(channelName, channelId, messages, guildName = 'a sim-racing community') {
     if (messages.length === 0) return [];
 
     const messagesText = messages
@@ -107,7 +107,7 @@ async function learnFromMessages(channelName, channelId, messages) {
         .map(m => `[${m.isStaff ? 'STAFF' : 'ÜYE'}] ${m.author}: ${m.content}`)
         .join('\n');
 
-    const system = `You are a knowledge extraction assistant for Olzhasstik Motorsports (OM) Discord server.
+    const system = `You are a knowledge extraction assistant for the Discord server "${guildName}".
 You extract permanent, structured facts about the server from Discord channel messages.
 
 EXTRACT:
