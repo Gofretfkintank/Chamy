@@ -36,6 +36,7 @@ const PendingRoleRestore  = require('../models/PendingRoleRestore');
 const RacingConfig        = require('../models/RacingConfig');
 const Sanction            = require('../models/Sanction');
 const { learnFromGuild, getKnowledgeContext } = require('../services/learner');
+const serverProfile       = require('../services/serverProfile');
 const cfg                 = require('../lib/guildConfig');
 const perms                = require('../lib/perms');
 const { LEGACY_GUILD_ID }   = require('../lib/legacySeed');
