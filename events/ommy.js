@@ -1068,7 +1068,7 @@ const RACING_TOOL_DECLARATIONS = [
 const COMMANDER_TOOL_DECLARATIONS = [
     {
         name:        'learn_server',
-        description: 'Scan server channels with Claude Sonnet to learn about the OM league and save to MongoDB knowledge base. Commander only. Triggers: "learn server", "learn whole server", "scan all channels", "sunucuyu öğren", "kanalları tara". Use channels="all" for everything, or a category/channel name (e.g. "Information", "Rules") to scan just that category.',
+        description: 'Scan server channels to learn about THIS server and save to the MongoDB knowledge base. Commander only. Triggers: "learn server", "learn whole server", "scan all channels", "sunucuyu öğren", "kanalları tara". Use channels="all" for everything, or a category/channel name (e.g. "Information", "Rules") to scan just that category.',
         parameters: {
             type: 'object',
             properties: {

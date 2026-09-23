@@ -99,7 +99,7 @@ async function flush() {
 
 let ticking = false;
 async function refreshTick(client) {
-    if (ticking || !process.env.CLAUDE_API_KEY) return;
+    if (ticking || !process.env.GEMINI_API_KEY) return;
     ticking = true;
     try {
         await flush();

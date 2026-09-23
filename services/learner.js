@@ -12,74 +12,19 @@ const OmKnowledge = require('../models/OmKnowledge');
 const { ChannelType } = require('discord.js');
 
 const MAX_MESSAGES_PER_CHANNEL = 80;
-const CLAUDE_API_URL = 'https://api.anthropic.com/v1/messages';
+const gemma = require('../lib/gemma');
 
-// ── Claude API çağrısı (native fetch, SDK gerektirmez) ─────────────────────
+// ── Model çağrıları ────────────────────────────────────────────────────────
+// Eskiden Claude Sonnet'e gidiyordu; 30-40 sunucuda maliyet saçma olacağı için
+// artık Gemma (Gemini API, aynı GEMINI_API_KEY). İsimler çağıran yerler
+// değişmesin diye aynı bırakıldı.
 async function callClaude(systemPrompt, userPrompt, maxTokens = 2048) {
-    const apiKey = process.env.CLAUDE_API_KEY;
-    if (!apiKey) throw new Error('CLAUDE_API_KEY env var is missing.');
-
-    const res = await fetch(CLAUDE_API_URL, {
-        method:  'POST',
-        headers: {
-            'Content-Type':      'application/json',
-            'x-api-key':         apiKey,
-            'anthropic-version': '2023-06-01',
-        },
-        body: JSON.stringify({
-            model:      'claude-sonnet-4-6',
-            max_tokens: maxTokens,
-            system:     systemPrompt,
-            messages:   [{ role: 'user', content: userPrompt }],
-        }),
-    });
-
-    if (!res.ok) {
-        const err = await res.text().catch(() => '');
-        throw new Error(`Claude API ${res.status}: ${err.slice(0, 200)}`);
-    }
-
-    const data = await res.json();
-    return data.content?.[0]?.text || '';
+    return gemma.generate(systemPrompt, userPrompt, [], maxTokens);
 }
 
-// ── Claude Vision API çağrısı — metin + resimler ──────────────────────────
 // images: [{ base64: string, mimeType: string }]
 async function callClaudeVision(systemPrompt, textPrompt, images = []) {
-    const apiKey = process.env.CLAUDE_API_KEY;
-    if (!apiKey) throw new Error('CLAUDE_API_KEY env var is missing.');
-
-    const content = [];
-    for (const img of images.slice(0, 5)) { // max 5 resim
-        content.push({
-            type:   'image',
-            source: { type: 'base64', media_type: img.mimeType || 'image/jpeg', data: img.base64 },
-        });
-    }
-    content.push({ type: 'text', text: textPrompt });
-
-    const res = await fetch(CLAUDE_API_URL, {
-        method:  'POST',
-        headers: {
-            'Content-Type':      'application/json',
-            'x-api-key':         apiKey,
-            'anthropic-version': '2023-06-01',
-        },
-        body: JSON.stringify({
-            model:      'claude-sonnet-4-6',
-            max_tokens: 2048,
-            system:     systemPrompt,
-            messages:   [{ role: 'user', content }],
-        }),
-    });
-
-    if (!res.ok) {
-        const err = await res.text().catch(() => '');
-        throw new Error(`Claude Vision API ${res.status}: ${err.slice(0, 200)}`);
-    }
-
-    const data = await res.json();
-    return data.content?.[0]?.text || '';
+    return gemma.generate(systemPrompt, textPrompt, images, 2048);
 }
 
 // ── Bir Discord attachment URL'sini base64'e çevir ─────────────────────────
@@ -533,9 +478,9 @@ RULES:
 // @param channelFilter "all" veya kanal ismi substring'i
 // @param onProgress    (string) => void  — ilerleme callback'i
 async function learnFromGuild(guild, channelFilter = 'all', onProgress = null) {
-    if (!process.env.CLAUDE_API_KEY) {
-        if (onProgress) onProgress('❌ `CLAUDE_API_KEY` is not set in Railway env.');
-        return { error: 'CLAUDE_API_KEY missing' };
+    if (!process.env.GEMINI_API_KEY) {
+        if (onProgress) onProgress('❌ `GEMINI_API_KEY` is not set in Railway env.');
+        return { error: 'GEMINI_API_KEY missing' };
     }
 
     await guild.channels.fetch().catch(() => {});

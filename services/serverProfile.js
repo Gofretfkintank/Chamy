@@ -29,7 +29,7 @@ const STANDINGS_RE = /(standing|puan|point|tablo|leaderboard|championship|[şs]a
 
 const MAX_CHANNELS         = 10;
 const MESSAGES_PER_CHANNEL = 50;
-const MAX_DUMP_CHARS       = 45000;
+const MAX_DUMP_CHARS       = 30000; // ~8k token — Gemma free tier'\u0131n dakikal\u0131k token limitine s\u0131\u011fs\u0131n
 
 // Aynı sunucu için aynı anda iki refresh koşmasın.
 const inFlight = new Set();
@@ -306,7 +306,7 @@ function normalizeStandings(list) {
 
 async function refreshServerProfile(guild, opts = {}) {
     const notify = typeof opts.onProgress === 'function' ? opts.onProgress : () => {};
-    if (!process.env.CLAUDE_API_KEY) return { error: 'CLAUDE_API_KEY is not set' };
+    if (!process.env.GEMINI_API_KEY) return { error: 'GEMINI_API_KEY is not set' };
     if (inFlight.has(guild.id)) return { error: 'a refresh is already running for this server' };
     inFlight.add(guild.id);
 
