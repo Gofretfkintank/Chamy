@@ -294,7 +294,7 @@ async function scanForumChannel(forumChannel, guildId, onProgress = null) {
 
     // ── Text-only thread'ler (başvuru formları) ────────────────────────────
     if (textThreads.length > 0) {
-        const system = `You are extracting structured knowledge from a Discord forum channel in a sim-racing league called Olzhasstik Motorsports (OM League).
+        const system = `You are extracting structured knowledge from a Discord forum channel in the sim-racing Discord server "${forumChannel.guild.name}".
 
 Each "thread" is a driver or team application. Extract facts to answer:
 - "What number does X prefer?"
