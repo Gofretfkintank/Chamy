@@ -478,9 +478,9 @@ RULES:
 // @param channelFilter "all" veya kanal ismi substring'i
 // @param onProgress    (string) => void  — ilerleme callback'i
 async function learnFromGuild(guild, channelFilter = 'all', onProgress = null) {
-    if (!process.env.CLAUDE_API_KEY) {
-        if (onProgress) onProgress('❌ `CLAUDE_API_KEY` is not set in Railway env.');
-        return { error: 'CLAUDE_API_KEY missing' };
+    if (!process.env.GEMINI_API_KEY) {
+        if (onProgress) onProgress('❌ `GEMINI_API_KEY` is not set in Railway env.');
+        return { error: 'GEMINI_API_KEY missing' };
     }
 
     await guild.channels.fetch().catch(() => {});
