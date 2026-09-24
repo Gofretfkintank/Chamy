@@ -336,7 +336,7 @@ async function refreshServerProfile(guild, opts = {}) {
 
         const { schedule, standings } = pickChannels(guild);
         const channels = [...standings, ...schedule];
-        notify(`📡 Profil: ${schedule.length} takvim/duyuru + ${standings.length} puan kanalı okunuyor...`);
+        notify(`📡 Profile: reading ${schedule.length} schedule/announcement + ${standings.length} standings channels...`);
 
         const perChannel = Math.floor(MAX_DUMP_CHARS / Math.max(1, channels.length));
         const dumps = [];
