@@ -61,6 +61,7 @@ Create a `.env` file:
 | `LEGACY_GUILD_ID` | no | OM's own guild ID — gates the OM-only features above. Defaults to OM's actual ID; only needed to point it elsewhere. |
 | `EXAROTON_API_KEY` | for `/mcturn` | Only used in OM's own server. |
 | `REPORT_LOG_ID` | for `/report` | Channel ID the report tool logs to. |
+| `MADPLUS_RATING_ENABLED` | optional | Defaults to **false** during the private beta. Set to `true` at public release to resume Mad+ ratings, Discord results scanning and app report imports. |
 
 Start it:
 
@@ -85,6 +86,27 @@ Once the bot is in a server, an admin runs `/config view` to see every
 configurable feature, then `/config set-channel`, `/config set-role`,
 `/config add` / `/config remove` (for list settings) and `/config clear`.
 A feature whose setting is unset stays quiet rather than guessing.
+
+### Mad+ rating release switch
+
+Mad+ ratings are temporarily paused unless `MADPLUS_RATING_ENABLED=true`.
+The original league scanning and rating calculation code is retained. While
+paused, scheduled jobs and `/rating` commands cannot import or recompute
+ratings. The bot publishes an empty rating snapshot to the lobby so the app
+does not keep displaying old ratings. Other bot features stay active.
+
+At public release, set `MADPLUS_RATING_ENABLED=true` on the bot's Railway
+service and deploy/restart it. The normal scan starts after five minutes and
+then runs every twenty minutes. This is an explicit release switch; publishing
+an APK alone does not change it.
+
+For a clean reset while paused, clear only `madratings`, `raceresults`,
+`racereports`, and the Discord-channel entries in `resultcursors`. Keep the
+`lobby:race-reports` cursor so already imported app reports are not replayed.
+Clearing the Discord cursors makes the next enabled scan read each results
+channel afresh (using the existing initial 60-message window). Account links,
+legacy driver ratings, economies and all other collections are unrelated to
+this reset.
 
 ## License
 

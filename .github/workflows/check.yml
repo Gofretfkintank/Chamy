@@ -34,6 +34,9 @@ jobs:
           rm -f err.txt
           exit $fail
 
+      - name: Rating pause regression tests
+        run: node --test tests/rating-pause.test.js
+
       - name: Install dependencies
         run: npm install --no-audit --no-fund
 

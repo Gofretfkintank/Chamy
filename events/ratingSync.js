@@ -9,6 +9,7 @@
 
 const { ingestGuild, recomputeAll } = require('../services/rating/ingest');
 const { pullReports, pushRatings } = require('../services/rating/madplus');
+const { isRatingEnabled } = require('../services/rating/config');
 
 const TICK_MS = 20 * 60 * 1000;
 const lastScan = new Map(); // guildId -> ms
@@ -18,6 +19,11 @@ async function tick(client) {
     if (running) return;
     running = true;
     try {
+        if (!isRatingEnabled()) {
+            const cleared = await pushRatings();
+            if (!cleared.skipped) console.log('[RATING] Paused; lobby rating snapshot cleared.');
+            return;
+        }
         const pulled = await pullReports().catch(err => {
             console.error('[RATING] report pull failed:', err.message);
             return { added: 0 };
@@ -37,10 +43,9 @@ async function tick(client) {
             }
         }
 
-        const c = await recomputeAll();
-        if (c.races) {
-            await pushRatings().catch(err => console.error('[RATING] push failed:', err.message));
-        }
+        await recomputeAll();
+        // Empty is a valid snapshot too (for example after a rating reset).
+        await pushRatings().catch(err => console.error('[RATING] push failed:', err.message));
     } catch (err) {
         console.error('[RATING] tick failed:', err.message);
     } finally {
@@ -50,7 +55,12 @@ async function tick(client) {
 
 module.exports = (client) => {
     const start = () => {
-        setTimeout(() => tick(client), 5 * 60 * 1000).unref?.();
+        if (isRatingEnabled()) {
+            setTimeout(() => tick(client), 5 * 60 * 1000).unref?.();
+        } else {
+            console.log('[RATING] Paused until release (MADPLUS_RATING_ENABLED is not true).');
+            void tick(client);
+        }
         setInterval(() => tick(client), TICK_MS).unref?.();
     };
     if (client.isReady?.()) start();

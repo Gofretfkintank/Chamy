@@ -20,6 +20,7 @@ const MadcarLink   = require('../../models/MadcarLink');
 const MadRating    = require('../../models/MadRating');
 const ResultCursor = require('../../models/ResultCursor');
 const engine       = require('./engine');
+const { isRatingEnabled } = require('./config');
 
 const CURSOR_ID        = 'lobby:race-reports';
 const PUBLIC_GRACE_MS  = 6 * 60 * 60 * 1000;
@@ -59,6 +60,7 @@ function cleanEntry(e) {
 }
 
 async function pullReports() {
+    if (!isRatingEnabled()) return { added: 0, skipped: true };
     const l = lobby();
     if (!l) return { added: 0, skipped: true };
 
@@ -110,6 +112,7 @@ async function pullReports() {
 }
 
 async function buildRaces(leagueRaces) {
+    if (!isRatingEnabled()) return [];
     const reports = await RaceReport.find({ finishedAt: { $gte: new Date(Date.now() - REPORT_WINDOW_MS) } }).lean();
     const links = await MadcarLink.find({}).lean();
     const byMadcar = new Map(links.map(l => [l.madcarId, l.discordId]));
@@ -274,7 +277,11 @@ function canonicalize(races) {
 async function pushRatings() {
     const l = lobby();
     if (!l) return { skipped: true };
-    const rows = await MadRating.find({ userId: { $ne: null } }).lean();
+    // Replace the lobby snapshot with an empty one while paused; otherwise
+    // old ratings remain visible after the MongoDB reset.
+    const rows = isRatingEnabled()
+        ? await MadRating.find({ userId: { $ne: null } }).lean()
+        : [];
     const drivers = rows.map(r => ({
         discordId: r.userId,
         name: r.name,

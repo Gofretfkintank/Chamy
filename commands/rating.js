@@ -9,6 +9,7 @@ const perms     = require('../lib/perms');
 const MadRating = require('../models/MadRating');
 const engine    = require('../services/rating/engine');
 const { ingestGuild, recomputeAll, resultChannels } = require('../services/rating/ingest');
+const { isRatingEnabled, PAUSED_REASON } = require('../services/rating/config');
 
 const sign = v => (v > 0 ? `+${v}` : `${v}`);
 
@@ -31,6 +32,9 @@ module.exports = {
             .setDescription('Recompute every rating from all races (bot owner)')),
 
     async execute(interaction) {
+        if (!isRatingEnabled()) {
+            return interaction.reply({ content: PAUSED_REASON, ephemeral: true });
+        }
         const sub = interaction.options.getSubcommand();
 
         if (sub === 'show') {
