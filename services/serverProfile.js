@@ -382,7 +382,7 @@ async function refreshServerProfile(guild, opts = {}) {
         // Metinde tablo yoksa ve puan kanalında resim varsa → vision
         let standingsOut = parsed ? normalizeStandings(parsed.standings) : [];
         if (parsed && standingsOut.length === 0 && standingImages.length > 0) {
-            notify('🖼️ Profil: puan tablosu resimleri okunuyor...');
+            notify('🖼️ Profile: reading standings table images...');
             const latest = [...standingImages].sort((a, b) => b.at.localeCompare(a.at)).slice(0, 3);
             const imgs = [];
             const captions = [];
