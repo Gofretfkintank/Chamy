@@ -54,6 +54,9 @@ const WORD = '(?<![\\p{L}\\p{N}])';
 const END  = '(?![\\p{L}\\p{N}])';
 const DRIVER_WORDS = 'drivers?|pilots?|pilotu|s[üu]r[üu]c[üu](?:s[üu])?|racers?';
 const DRIVER_ROLE_RE = new RegExp(`${WORD}(?:${DRIVER_WORDS})${END}`, 'iu');
+// "Driver Manager", "Driver Steward", "Driver Coordinator" gibi yonetim rolleri
+const NOT_DRIVER_RE = new RegExp(
+    `${WORD}(?:manager|coordinator|steward|admin|mod|moderator|staff|y[öo]netici|sorumlu|director|marshal)${END}`, 'iu');
 // Seri adı çıkarırken rol adından atılan kelimeler: "F1 Driver" -> "f1",
 // "Official GT3 Driver" -> "gt3", sadece "Driver" -> "" (tüm yarışlar).
 const ROLE_NOISE_RE = new RegExp(
