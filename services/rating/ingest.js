@@ -39,7 +39,14 @@ RULES:
 - If the message has several races, return only the FIRST race.
 - If you can't read an image clearly, return isRaceResult=false.`;
 
-const norm = s => String(s || '').normalize('NFKC').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '');
+// Isim eslestirme (madplus.js ile ayni): \"K_Møi21\" == \"kmoi21\".
+const FOLD = { 'ø': 'o', 'Ø': 'o', 'æ': 'ae', 'Æ': 'ae', 'œ': 'oe', 'Œ': 'oe', 'ß': 'ss', 'ı': 'i', 'ł': 'l', 'Ł': 'l', 'đ': 'd', 'Đ': 'd', 'þ': 'th' };
+const norm = s => String(s || '')
+    .normalize('NFKC')
+    .replace(/[øØæÆœŒßıłŁđĐþ]/g, c => FOLD[c])
+    .normalize('NFKD').replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, '');
 
 function parseJson(raw) {
     const t = raw || '';
