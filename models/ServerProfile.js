@@ -52,6 +52,7 @@ const serverProfileSchema = new Schema({
     timezone:       { type: String, default: '' },     // IANA, örn. Europe/Istanbul
     timezoneManual: { type: Boolean, default: false }, // Commander sabitlediyse AI ezmez
     games:          { type: [String], default: [] },   // sunucunun oynadığı oyunlar (Gemma) — Mad+ Leagues filtresi
+    inviteUrl:      { type: String, default: '' },     // Chamy'nin olusturdugu suresiz davet (vanity yoksa)
 
     staff:         { type: [personSchema], default: [] },
     hosts:         { type: [personSchema], default: [] },
