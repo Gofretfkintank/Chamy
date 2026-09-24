@@ -30,11 +30,15 @@ const matchesGame = (text) => {
 };
 
 function racesSupportedGame(p, guild) {
-    // 1) Gemma'nın çıkardığı oyun listesi varsa o belirleyici
-    if (Array.isArray(p.games) && p.games.length) return p.games.some(matchesGame);
-    // 2) Henüz yoksa (profil eski): ad, açıklama ve kanal adlarında oyun geçiyor mu
+    // Sunucunun kendi adi/aciklamasi/kanallari "Madcar" diyorsa bu KESIN sinyal.
+    // Gemma'nin "games" alani (sezon adini oyunla karistirip "F1 2020" gibi
+    // yanlis bir sey yazmasi mumkun) bunu asla tek basina ELEYEMEZ -- sadece
+    // ikisi de aciyken (games var ama Madcar demiyor VE isimde de yok) filtrelenir.
     const channels = [...(guild?.channels?.cache?.values() || [])].map(c => c.name).join(' ');
-    return matchesGame(`${guild?.name || p.guildName} ${guild?.description || ''} ${channels}`);
+    if (matchesGame(`${guild?.name || p.guildName} ${guild?.description || ''} ${channels}`)) return true;
+    if (Array.isArray(p.games) && p.games.length) return p.games.some(matchesGame);
+    // "games" hic cikarilmamissa (henuz taranmamis profil) adi da eslesmedi -> bilinmiyor sayma, disari birak
+    return false;
 }
 
 const WARN_EVERY_MS = 6 * 60 * 60 * 1000;
