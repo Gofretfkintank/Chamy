@@ -171,7 +171,7 @@ function bannerOf(guild) {
         || null;
 }
 
-function snapshot(p, guild) {
+function snapshot(p, guild, inviteUrl) {
     const now = Date.now();
     const roles = driverRolesOf(guild);
     return {
@@ -183,7 +183,7 @@ function snapshot(p, guild) {
         memberCount: guild?.memberCount || p.memberCount || 0,
         ownerName:   p.ownerName || null,
         timezone:    p.timezone || null,
-        inviteUrl:   guild?.vanityURLCode ? `https://discord.gg/${guild.vanityURLCode}` : null,
+        inviteUrl:   inviteUrl || null,
         raceSchedule: {
             summary: p.raceSchedule?.summary || '',
             days:    p.raceSchedule?.days  || [],
