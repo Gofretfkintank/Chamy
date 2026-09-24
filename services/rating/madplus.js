@@ -184,7 +184,91 @@ async function buildRaces(leagueRaces) {
         if (entries.length < 2) continue;
         out.push({ _id: `report:${String(r._id)}`, source: 'public', guildId: '', raceAt: r.finishedAt, memberCount: 0, entries });
     }
-    return out;
+    return canonicalize(out);
+}
+
+// ── Yazim farki olan ayni surucu ─────────────────────────────────────────────
+// Sonuc tablolari elle yaziliyor: "AlexEspo08", "AlexEspoo08", "AlexExpo08",
+// "Proton0"/"ProtonO" ayni kisi ama ayri rating'e bolunuyordu.
+//  • iskelet: 0->o, 1/l->i, tekrarlanan harf teke ("espoo" -> "espo")
+//  • iskeletler ayni ise ayni kisi
+//  • 6+ harfli iskeletlerde TEK harf farki da ayni kisi (kisa adlarda yok:
+//    "Leo5"/"Leo6" farkli kisiler olabilir)
+//  • grupta Discord'a bagli (u:) kayit varsa hepsi ona baglanir; yoksa en cok
+//    gecen yazim grubun anahtari olur.
+const skeleton = s => norm(s).replace(/0/g, 'o').replace(/[1l]/g, 'i').replace(/(.)\1+/g, '$1');
+
+function withinOneEdit(a, b) {
+    if (a === b) return true;
+    if (Math.abs(a.length - b.length) > 1) return false;
+    let i = 0, j = 0, edits = 0;
+    while (i < a.length && j < b.length) {
+        if (a[i] === b[j]) { i++; j++; continue; }
+        if (++edits > 1) return false;
+        if (a.length > b.length) i++;
+        else if (b.length > a.length) j++;
+        else { i++; j++; }
+    }
+    return edits + (a.length - i) + (b.length - j) <= 1;
+}
+
+const sameDriver = (a, b) => a === b || (a.length >= 6 && b.length >= 6 && withinOneEdit(a, b));
+
+function canonicalize(races) {
+    // Her anahtar icin: iskelet, bagli hesap, kac kez gectigi
+    const info = new Map(); // key -> { sk, userId, count }
+    for (const race of races) {
+        for (const e of race.entries || []) {
+            const sk = skeleton(e.name || e.key.slice(2));
+            if (!sk) continue;
+            const cur = info.get(e.key) || { sk, userId: e.userId || null, count: 0 };
+            cur.count++;
+            if (e.userId) cur.userId = e.userId;
+            info.set(e.key, cur);
+        }
+    }
+
+    // Union-find: ayni surucu sayilan anahtarlari grupla
+    const keys = [...info.keys()];
+    const parent = new Map(keys.map(k => [k, k]));
+    const find = k => { while (parent.get(k) !== k) { parent.set(k, parent.get(parent.get(k))); k = parent.get(k); } return k; };
+    for (let i = 0; i < keys.length; i++) {
+        for (let j = i + 1; j < keys.length; j++) {
+            const a = info.get(keys[i]), b = info.get(keys[j]);
+            // Iki FARKLI Discord hesabi asla birlesmez
+            if (a.userId && b.userId && a.userId !== b.userId) continue;
+            if (sameDriver(a.sk, b.sk)) parent.set(find(keys[i]), find(keys[j]));
+        }
+    }
+
+    // Grup basina kanonik anahtar: Discord hesabi varsa o, yoksa en cok gecen
+    const groups = new Map(); // root -> [keys]
+    for (const k of keys) {
+        const r = find(k);
+        if (!groups.has(r)) groups.set(r, []);
+        groups.get(r).push(k);
+    }
+    const canonical = new Map(); // key -> { key, userId }
+    for (const members of groups.values()) {
+        if (members.length === 1) continue;
+        // Grupta birden fazla farkli hesap varsa (zincirleme eslesme) dokunma
+        const accounts = new Set(members.map(k => info.get(k).userId).filter(Boolean));
+        if (accounts.size > 1) continue;
+        const userId = [...accounts][0] || null;
+        const target = userId
+            ? `u:${userId}`
+            : members.reduce((best, k) => (info.get(k).count > info.get(best).count ? k : best), members[0]);
+        for (const k of members) canonical.set(k, { key: target, userId });
+    }
+    if (!canonical.size) return races;
+
+    return races.map(race => ({
+        ...race,
+        entries: (race.entries || []).map(e => {
+            const c = canonical.get(e.key);
+            return c ? { ...e, key: c.key, userId: c.userId || e.userId || null } : e;
+        }),
+    }));
 }
 
 async function pushRatings() {
