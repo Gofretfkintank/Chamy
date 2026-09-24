@@ -1559,7 +1559,7 @@ async function executeTool(name, args, client, guildId, userPrompt, message) {
 
         case 'learn_server': {
             if (!perms.isOwner(message.author.id)) {
-                return { error: 'permission_denied', message: 'Bu araç sadece Commander için.' };
+                return { error: 'permission_denied', message: 'This tool is Commander-only.' };
             }
             // Fire-and-forget — background'da çalışır, ilerlemeyi kanala yazar
             const channelFilter = args.channels || 'all';
