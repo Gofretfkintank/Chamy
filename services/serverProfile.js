@@ -271,6 +271,7 @@ Return ONLY valid JSON, nothing else:
 }
 
 RULES:
+- Return strict, valid JSON only: escape any double-quote character that appears inside a string value as \", no trailing commas, no comments.
 - Only what the data actually supports. Never invent people, dates, tracks or points.
 - CONSISTENCY: if a calendar entry names a host, that person must also appear in the top-level "hosts" list. If sessions are grouped by series (e.g. "F1", "F2", "GT3 Cup"), each distinct series must also appear in "leagues". Never leave hosts/leagues empty when the calendar/standings already show that information.
 - hosts = people who actually open lobbies / run / host races (post lobby codes, say they're hosting, are listed as host). Staff are NOT automatically hosts. HOST SIGNALS are supporting evidence only.
