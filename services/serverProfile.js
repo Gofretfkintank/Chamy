@@ -272,6 +272,7 @@ Return ONLY valid JSON, nothing else:
 
 RULES:
 - Only what the data actually supports. Never invent people, dates, tracks or points.
+- CONSISTENCY: if a calendar entry names a host, that person must also appear in the top-level "hosts" list. If sessions are grouped by series (e.g. "F1", "F2", "GT3 Cup"), each distinct series must also appear in "leagues". Never leave hosts/leagues empty when the calendar/standings already show that information.
 - hosts = people who actually open lobbies / run / host races (post lobby codes, say they're hosting, are listed as host). Staff are NOT automatically hosts. HOST SIGNALS are supporting evidence only.
 - calendar: only events starting after NOW minus 1 day. Resolve relative dates ("tomorrow 20:00", "yarın", "bu pazar", "this Sunday") against that message's own timestamp. A time without a timezone uses TIMEZONE HINT; if there is no hint, set startsAtUtc null and keep timeText. Max 15, sorted by time. Discord scheduled events are already known — only add them again if the messages give extra detail (series/track).
 - standings: only the latest table per series, all visible rows (max 40). Omit if none in the text.
