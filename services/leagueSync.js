@@ -76,6 +76,7 @@ function driverRolesOf(guild) {
         .filter(r =>
             !r.managed && r.id !== guild.id &&
             DRIVER_ROLE_RE.test(r.name.normalize('NFKC')) &&
+            !NOT_DRIVER_RE.test(r.name.normalize('NFKC')) &&
             // Admin/yönetim rolleri sürücü rolü sayılmaz ("Driver Manager" gibi)
             !r.permissions.has(F.Administrator) && !r.permissions.has(F.ManageGuild))
         .sort((a, b) => b.position - a.position)
