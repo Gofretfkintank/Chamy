@@ -242,7 +242,8 @@ async function pushAll(client) {
         if (!guild) continue; // bot artık o sunucuda değil
         if (!racesSupportedGame(p, guild)) continue; // Madcar dışı sunucu
         if (driverRolesOf(guild).length) await ensureMembers(guild);
-        leagues.push(snapshot(p, guild));
+        const inviteUrl = await ensureInvite(guild, p);
+        leagues.push(snapshot(p, guild, inviteUrl));
     }
 
     const res = await fetch(`${base}/v1/leagues/sync`, {
