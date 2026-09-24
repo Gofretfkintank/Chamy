@@ -27,7 +27,15 @@ const MATCH_BEFORE_MS  = 8 * 60 * 60 * 1000;  // sonuc kanala yaristan en gec 8 
 const MATCH_AFTER_MS   = 60 * 60 * 1000;
 const REPORT_WINDOW_MS = 365 * 24 * 60 * 60 * 1000;
 
-const norm = s => String(s || '').normalize('NFKC').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '');
+// Isim eslestirme: \"K_Møi21\" == \"kmoi21\", \"Ñandú\" == \"nandu\". NFKC suslu
+// unicode'u duzeltir, sonra ozel harfler katlanir, aksanlar atilir.
+const FOLD = { 'ø': 'o', 'Ø': 'o', 'æ': 'ae', 'Æ': 'ae', 'œ': 'oe', 'Œ': 'oe', 'ß': 'ss', 'ı': 'i', 'ł': 'l', 'Ł': 'l', 'đ': 'd', 'Đ': 'd', 'þ': 'th' };
+const norm = s => String(s || '')
+    .normalize('NFKC')
+    .replace(/[øØæÆœŒßıłŁđĐþ]/g, c => FOLD[c])
+    .normalize('NFKD').replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, '');
 
 function lobby() {
     const base = (process.env.MADPLUS_LOBBY_URL || '').trim()
