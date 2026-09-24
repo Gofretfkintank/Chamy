@@ -1567,23 +1567,23 @@ async function executeTool(name, args, client, guildId, userPrompt, message) {
                 const notify = (msg) => message.channel.send(msg).catch(() => {});
                 const result = await learnFromGuild(message.guild, channelFilter, notify);
                 if (result.error) {
-                    await notify(`❌ Öğrenme başarısız: ${result.error}`);
+                    await notify(`❌ Learning failed: ${result.error}`);
                 } else {
                     await notify(
-                        `✅ **Öğrenme tamamlandı!**\n` +
-                        `📊 ${result.channelsScanned} kanal tarandı\n` +
-                        `💾 ${result.totalSaved} yeni bilgi | ${result.totalUpdated} güncelleme\n` +
-                        `🧠 Artık bilgilerimi kullanabilirim!`
+                        `✅ **Learning complete!**\n` +
+                        `📊 ${result.channelsScanned} channels scanned\n` +
+                        `💾 ${result.totalSaved} new facts | ${result.totalUpdated} updated\n` +
+                        `🧠 I can use this knowledge now!`
                     );
                 }
                 if (channelFilter === 'all') {
                     const p = await serverProfile.refreshServerProfile(message.guild, { onProgress: notify });
-                    if (p.error) await notify(`❌ Profil güncellenemedi: ${p.error}`);
-                    else await notify(`📋 **Profil güncellendi** — ${p.staff} staff, ${p.hosts} host, ${p.events} etkinlik, ${p.standings} puan tablosu${p.timezone ? `, saat dilimi ${p.timezone}` : ''}.`);
+                    if (p.error) await notify(`❌ Profile refresh failed: ${p.error}`);
+                    else await notify(`📋 **Profile updated** — ${p.staff} staff, ${p.hosts} hosts, ${p.events} events, ${p.standings} standings tables${p.timezone ? `, timezone ${p.timezone}` : ''}.`);
                 }
             })().catch(err => console.error('[LEARN TOOL]', err.message));
 
-            return { success: true, message: `Öğrenme başlatıldı! Kanalları tarıyorum (filtre: "${channelFilter}"), ilerlemeyi buraya yazacağım...` };
+            return { success: true, message: `Learning started! Scanning channels (filter: "${channelFilter}"), I'll post progress here...` };
         }
 
         case 'get_server_profile': {
