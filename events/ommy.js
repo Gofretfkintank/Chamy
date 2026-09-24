@@ -1602,8 +1602,8 @@ async function executeTool(name, args, client, guildId, userPrompt, message) {
             ;(async () => {
                 const notify = (msg) => message.channel.send(msg).catch(() => {});
                 const p = await serverProfile.refreshServerProfile(message.guild, { onProgress: notify, timezone });
-                if (p.error) await notify(`❌ Profil güncellenemedi: ${p.error}`);
-                else await notify(`📋 **Profil güncellendi** — ${p.staff} staff, ${p.hosts} host, ${p.events} etkinlik, ${p.standings} puan tablosu${p.timezone ? `, saat dilimi ${p.timezone}` : ''}.${p.warning ? `\n⚠️ ${p.warning}` : ''}`);
+                if (p.error) await notify(`❌ Profile refresh failed: ${p.error}`);
+                else await notify(`📋 **Profile updated** — ${p.staff} staff, ${p.hosts} hosts, ${p.events} events, ${p.standings} standings tables${p.timezone ? `, timezone ${p.timezone}` : ''}.${p.warning ? `\n⚠️ ${p.warning}` : ''}`);
                 if (!p.error) require('../services/leagueSync').pushAll(message.client).catch(err => console.error('[LEAGUE SYNC]', err.message));
             })().catch(err => console.error('[PROFILE TOOL]', err.message));
             return { success: true, message: 'Profile refresh started — progress is posted in this channel.' };
