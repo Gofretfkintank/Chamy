@@ -1,21 +1,28 @@
 // services/leagueSync.js
 // ─────────────────────────────────────────────────────────────────────────────
 // Chamy'nin öğrendiği sunucu profillerini Mad+ lobby sunucusuna yollar →
-// uygulamadaki More > Leagues sayfası. AI yok, tek bir HTTP isteği.
+// uygulamadaki More > Leagues sayfası ve Home'daki Upcoming Sessions.
+// AI yok, tek bir HTTP isteği.
 //
 // Her seferinde TÜM liste gider (POST /v1/leagues/sync): bot'un çıktığı
 // sunucu bir sonraki sync'te listeden düşer, lobby yeniden başlarsa da en geç
-// 30 dk'da tekrar dolar. Bot'un olduğu her sunucu listelenir — Chamy'nin
-// sohbet tarafı uyuyor olsa da.
+// 5 dk'da tekrar dolar.
 //
-// Sadece herkese açık olabilecek alanlar gider: sunucu adı/ikonu/banner'ı/
-// açıklaması, üye sayısı, owner adı, yarış düzeni, ligler, takvim, puan
-// tablosu, host'lar, yoğun gün/saat. Aktif üye listesi ve staff listesi GİTMEZ.
+// Herkese açık alanlar: sunucu adı/ikonu/banner'ı/açıklaması, üye sayısı,
+// owner adı, yarış düzeni, ligler, takvim, puan tablosu, host'lar, yoğun
+// gün/saat. Aktif üye listesi ve staff listesi GİTMEZ.
+//
+// Sürücü rolleri ("F1 Driver", "F2 Driver", "GT3 Driver"...): rol adından seri
+// çıkarılır, takvimdeki her etkinlik o seriye uyan rollere eşlenir. Rol
+// üyelerinin Discord ID'leri SADECE lobby'ye gider (Home'da "benim
+// yarışlarım" için) — lobby bunları hiçbir herkese açık endpoint'te dönmez.
+// Üyelik her push'ta Discord'dan canlı okunur, 5 dk'da bir güncel.
 //
 // Env: MADPLUS_LOBBY_URL        (https://madplus-lobby-production.up.railway.app)
 //      MADPLUS_LEAGUE_SYNC_KEY  (lobby servisindeki ile aynı değer)
 // ─────────────────────────────────────────────────────────────────────────────
 
+const { PermissionsBitField } = require('discord.js');
 const ServerProfile = require('../models/ServerProfile');
 
 // Mad+'ın desteklediği oyunlar. Başka oyun eklenince buraya bir regex eklenir.
@@ -39,6 +46,62 @@ function racesSupportedGame(p, guild) {
     if (Array.isArray(p.games) && p.games.length) return p.games.some(matchesGame);
     // "games" hic cikarilmamissa (henuz taranmamis profil) adi da eslesmedi -> bilinmiyor sayma, disari birak
     return false;
+}
+
+// ── Sürücü rolleri ───────────────────────────────────────────────────────────────
+// Unicode sınırları (\b Türkçe harflerde çalışmıyor, "sürücü" kaçardı).
+const WORD = '(?<![\\p{L}\\p{N}])';
+const END  = '(?![\\p{L}\\p{N}])';
+const DRIVER_WORDS = 'drivers?|pilots?|pilotu|s[üu]r[üu]c[üu](?:s[üu])?|racers?';
+const DRIVER_ROLE_RE = new RegExp(`${WORD}(?:${DRIVER_WORDS})${END}`, 'iu');
+// Seri adı çıkarırken rol adından atılan kelimeler: "F1 Driver" -> "f1",
+// "Official GT3 Driver" -> "gt3", sadece "Driver" -> "" (tüm yarışlar).
+const ROLE_NOISE_RE = new RegExp(
+    `${WORD}(?:${DRIVER_WORDS}|role|official|main|reserve|yedek|team|tak[ıi]m|league|lig)${END}`, 'giu');
+
+const MEMBER_REFRESH_MS = 60 * 60 * 1000;
+const memberFetchedAt = new Map(); // guildId -> ms
+
+const tokens = s => String(s || '')
+    .normalize('NFKC').toLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, ' ')
+    .trim().split(/\s+/).filter(Boolean);
+
+function driverRolesOf(guild) {
+    const F = PermissionsBitField.Flags;
+    return [...guild.roles.cache.values()]
+        .filter(r =>
+            !r.managed && r.id !== guild.id &&
+            DRIVER_ROLE_RE.test(r.name.normalize('NFKC')) &&
+            // Admin/yönetim rolleri sürücü rolü sayılmaz ("Driver Manager" gibi)
+            !r.permissions.has(F.Administrator) && !r.permissions.has(F.ManageGuild))
+        .sort((a, b) => b.position - a.position)
+        .slice(0, 25)
+        .map(r => ({
+            id:      r.id,
+            name:    r.name,
+            series:  tokens(r.name.normalize('NFKC').replace(ROLE_NOISE_RE, ' ')).join(' '),
+            members: [...r.members.filter(m => !m.user.bot).keys()],
+        }));
+}
+
+// Bir etkinlik hangi sürücü rollerini ilgilendiriyor?
+//  • Seri adı boş rol (sadece "Driver") -> sunucunun tüm yarışları
+//  • "F1" rolü -> seri/başlığında "f1" kelimesi geçen etkinlikler
+function rolesForEvent(event, roles) {
+    const eventTokens = new Set(tokens(`${event.series || ''} ${event.title || ''}`));
+    return roles
+        .filter(r => !r.series || r.series.split(' ').every(t => eventTokens.has(t)))
+        .map(r => r.id);
+}
+
+// Rol üyeleri cache'ten okunuyor; cache'in eksik kalmaması için saatte bir tam liste.
+async function ensureMembers(guild) {
+    if (!guild.memberCount || guild.memberCount > 5000) return;
+    const last = memberFetchedAt.get(guild.id) || 0;
+    if (Date.now() - last < MEMBER_REFRESH_MS) return;
+    memberFetchedAt.set(guild.id, Date.now());
+    await guild.members.fetch().catch(() => {});
 }
 
 const WARN_EVERY_MS = 6 * 60 * 60 * 1000;
@@ -70,6 +133,7 @@ function bannerOf(guild) {
 
 function snapshot(p, guild) {
     const now = Date.now();
+    const roles = driverRolesOf(guild);
     return {
         guildId:     p.guildId,
         name:        guild?.name || p.guildName || '',
@@ -97,6 +161,9 @@ function snapshot(p, guild) {
                 host:     e.host || '',
                 startsAt: ms(e.startsAt),
                 timeText: e.timeText || null,
+                // Lobby'ye özel: Home'da "benim yarışlarım" eşlemesi. Herkese açık
+                // endpoint'lerde lobby bunu siler.
+                driverRoleIds: rolesForEvent(e, roles),
             })),
         standings: (p.standings || []).map(s => ({
             series: s.series || '',
@@ -110,6 +177,9 @@ function snapshot(p, guild) {
         })),
         busiestDays:  p.busiestDays  || [],
         peakHoursUtc: p.peakHoursUtc || [],
+        // Lobby'ye özel (bkz. yukarı). Herkese açık tarafta sadece rol adı +
+        // sürücü sayısı kalır, üye ID'leri kalır.
+        driverRoles:  roles,
         updatedAt:    ms(p.refreshedAt),
     };
 }
@@ -131,6 +201,7 @@ async function pushAll(client) {
         const guild = client.guilds.cache.get(p.guildId);
         if (!guild) continue; // bot artık o sunucuda değil
         if (!racesSupportedGame(p, guild)) continue; // Madcar dışı sunucu
+        if (driverRolesOf(guild).length) await ensureMembers(guild);
         leagues.push(snapshot(p, guild));
     }
 
@@ -147,4 +218,4 @@ async function pushAll(client) {
     return { pushed: leagues.length };
 }
 
-module.exports = { pushAll };
+module.exports = { pushAll, driverRolesOf };
