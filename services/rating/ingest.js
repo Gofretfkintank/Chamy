@@ -19,6 +19,7 @@ const ServerProfile = require('../../models/ServerProfile');
 const gemma         = require('../../lib/gemma');
 const learner       = require('../learner');
 const engine        = require('./engine');
+const { isRatingEnabled, PAUSED_REASON } = require('./config');
 
 const RESULTS_RE        = /(result|sonu[çc]|classification|klasman|race-?report|yar[ıi][şs]-?sonu)/i;
 const MADCAR_RE         = /mad\s*car/i;
@@ -146,6 +147,7 @@ function toEntries(parsed, index) {
 
 /** Bir sunucunun sonuc kanallarindaki YENI mesajlari okur. -> { scanned, added } */
 async function ingestGuild(guild) {
+    if (!isRatingEnabled()) return { scanned: 0, added: 0, skipped: PAUSED_REASON };
     if (!process.env.GEMINI_API_KEY) return { scanned: 0, added: 0, skipped: 'no GEMINI_API_KEY' };
     if (!(await isMadcarGuild(guild))) return { scanned: 0, added: 0, skipped: 'not a Madcar server' };
 
@@ -202,6 +204,7 @@ async function ingestGuild(guild) {
 
 /** Lig sonuclari + Mad+ raporlarindan rating'i bastan kurar, MadRating'e yazar. */
 async function recomputeAll() {
+    if (!isRatingEnabled()) return { players: 0, races: 0, skipped: PAUSED_REASON };
     const leagueRaces = await RaceResult.find({ ignored: { $ne: true } }).lean();
     const races = await require('./madplus').buildRaces(leagueRaces);
     const { players } = engine.recompute(races);
