@@ -260,8 +260,7 @@ You get: server basics, staff list, activity statistics, Discord scheduled event
 
 Return ONLY valid JSON, nothing else:
 {
-  "games": ["the racing game(s) this server is actually about, e.g. Madcar Racing, GTA 4, FX Racer, Assetto Corsa — judge from server name/description, channel names and messages; [] if unclear"],
-  "timezone": "IANA timezone the server clearly uses for its times (e.g. Europe/Istanbul), or null",
+  "games": ["the racing GAME/simulator this server races in, e.g. Madcar Racing, GTA 4, FX Racer, Assetto Corsa — this is the game engine/app, NOT a league or season name. A channel or league called 'F1 2020', 'Champmad F1', 'F1 Season 5' etc. is a SERIES INSIDE the game, not the game itself — do not put series/season names here. If the server's own name/branding says a game name (e.g. 'Madcar'), include it. [] if genuinely unclear.", "timezone": "IANA timezone the server clearly uses for its times (e.g. Europe/Istanbul), or null",
   "hosts": [{ "name": "name exactly as written", "detail": "what they host / short evidence", "confidence": 0.8 }],
   "raceSchedule": { "summary": "one sentence, e.g. Races are usually Wednesday and Sunday at 20:00 Turkey time", "days": ["Wed", "Sun"], "times": ["20:00 Europe/Istanbul"] },
   "leagues": [{ "name": "", "format": "e.g. GT3 Sprint, Formula", "status": "active|upcoming|finished" }],
