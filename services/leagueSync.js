@@ -111,6 +111,42 @@ async function ensureMembers(guild) {
 const WARN_EVERY_MS = 6 * 60 * 60 * 1000;
 let lastWarnAt = 0;
 
+// ── Davet linki (Leagues sayfasindaki "Join" butonu) ─────────────────────────
+// Vanity URL varsa o. Yoksa Chamy BIR KEZ suresiz, sinirsiz bir davet olusturup
+// ServerProfile.inviteUrl'e yazar; sonra hep onu kullanir. Yetki yoksa 6 saatte
+// bir tekrar dener (sunucu yetkiyi sonradan verebilir).
+const INVITE_RETRY_MS = 6 * 60 * 60 * 1000;
+const inviteTriedAt = new Map(); // guildId -> ms
+
+async function ensureInvite(guild, p) {
+    if (guild.vanityURLCode) return `https://discord.gg/${guild.vanityURLCode}`;
+    if (p.inviteUrl) return p.inviteUrl;
+    if (Date.now() - (inviteTriedAt.get(guild.id) || 0) < INVITE_RETRY_MS) return null;
+    inviteTriedAt.set(guild.id, Date.now());
+
+    const me = guild.members.me;
+    const F = PermissionsBitField.Flags;
+    const textChannels = [...guild.channels.cache.values()]
+        .filter(c => c.type === ChannelType.GuildText)
+        .sort((a, b) => a.rawPosition - b.rawPosition);
+    const channel = [guild.rulesChannel, guild.systemChannel, ...textChannels]
+        .filter(Boolean)
+        .find(c => me && c.permissionsFor(me)?.has([F.ViewChannel, F.CreateInstantInvite]));
+    if (!channel) return null;
+
+    try {
+        const invite = await guild.invites.create(channel, {
+            maxAge: 0, maxUses: 0, unique: false,
+            reason: 'Mad+ Leagues page: permanent join link',
+        });
+        await ServerProfile.updateOne({ guildId: guild.id }, { $set: { inviteUrl: invite.url } });
+        return invite.url;
+    } catch (err) {
+        console.warn(`[LEAGUE SYNC] invite for ${guild.name} failed: ${err.message}`);
+        return null;
+    }
+}
+
 function ms(d) {
     if (!d) return null;
     const t = new Date(d).getTime();
