@@ -1596,7 +1596,7 @@ async function executeTool(name, args, client, guildId, userPrompt, message) {
 
         case 'refresh_server_profile': {
             if (!perms.isOwner(message.author.id)) {
-                return { error: 'permission_denied', message: 'Bu araç sadece Commander için.' };
+                return { error: 'permission_denied', message: 'This tool is Commander-only.' };
             }
             const timezone = args.timezone ? String(args.timezone).trim() : '';
             ;(async () => {
