@@ -22,7 +22,7 @@
 //      MADPLUS_LEAGUE_SYNC_KEY  (lobby servisindeki ile aynı değer)
 // ─────────────────────────────────────────────────────────────────────────────
 
-const { PermissionsBitField } = require('discord.js');
+const { PermissionsBitField, ChannelType } = require('discord.js');
 const ServerProfile = require('../models/ServerProfile');
 
 // Mad+'ın desteklediği oyunlar. Başka oyun eklenince buraya bir regex eklenir.
