@@ -368,16 +368,15 @@ async function refreshServerProfile(guild, opts = {}) {
 
         let parsed    = null;
         let lastError = '';
-        try {
-            const raw = await learner.callClaude(
-                EXTRACT_SYSTEM,
-                `${facts}\n\n=== CHANNEL MESSAGES ===\n${dumps.join('\n\n') || '(no readable schedule/standings channels)'}`,
-                4096
-            );
-            parsed = parseJson(raw);
-        } catch (err) {
-            lastError = `extract: ${err.message}`.slice(0, 300);
-            console.error('[PROFILE] extract failed:', err.message);
+        const extractPrompt = `${facts}\n\n=== CHANNEL MESSAGES ===\n${dumps.join('\n\n') || '(no readable schedule/standings channels)'}`;
+        for (let attempt = 0; attempt < 2 && !parsed; attempt++) {
+            try {
+                const raw = await learner.callClaude(EXTRACT_SYSTEM, extractPrompt, 4096);
+                parsed = parseJson(raw);
+            } catch (err) {
+                lastError = `extract: ${err.message}`.slice(0, 300);
+                console.error(`[PROFILE] extract failed (attempt ${attempt + 1}):`, err.message);
+            }
         }
 
         // Metinde tablo yoksa ve puan kanalında resim varsa → vision
