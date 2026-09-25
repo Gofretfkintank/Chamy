@@ -61,7 +61,7 @@ async function upsert(Model, legacyId, data) {
         { guildId, legacyId: Number(legacyId) },
         { $setOnInsert: data },
         { upsert: true, new: true, setDefaultsOnInsert: true }
-    ).lean();
+    );
 }
 async function main() {
     await mongoose.connect(process.env.MONGO_URI);
