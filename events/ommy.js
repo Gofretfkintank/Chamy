@@ -675,6 +675,24 @@ Rules:
     return extractJsonObject((await model.generateContent(parts)).response.text());
 }
 
+async function resolveAetherSubmissionIdentity(message) {
+    if (message.reference?.messageId) {
+        const referenced = await message.fetchReference().catch(() => null);
+        if (referenced?.author?.id && !referenced.author.bot) {
+            return {
+                userId: String(referenced.author.id),
+                source: 'reply_author',
+                referencedMessageId: String(referenced.id)
+            };
+        }
+    }
+    return {
+        userId: String(message.author.id),
+        source: 'invoking_author',
+        referencedMessageId: null
+    };
+}
+
 async function submitAetherProofFromMessage(message) {
     const { images, videos } = await getAetherProofAttachments(message);
     if (!images.length) return { error: 'proof_image_required', message: 'Attach or reply to a message containing the lap-timer screenshot.' };
@@ -690,12 +708,16 @@ async function submitAetherProofFromMessage(message) {
         (!Number.isInteger(lapCount) || lapCount < 1 || lapCount > 12)) {
         return { error: 'lap_limit_exceeded', message: `Submission rejected: ${sessionType.toLowerCase()} sessions allow a maximum of 12 laps. The screenshot shows ${Number.isInteger(lapCount) ? lapCount : 'an unreadable number of'} laps.` };
     }
-    const profile = await aether.findProfileForUser(message.guildId, message.author.id, { activeOnly: true });
+    const identity = await resolveAetherSubmissionIdentity(message);
+    const profile = await aether.findProfileForUser(message.guildId, identity.userId, { activeOnly: true });
     if (!profile) {
-        const configured = await aether.findProfileForUser(message.guildId, message.author.id);
+        const configured = await aether.findProfileForUser(message.guildId, identity.userId);
+        const subject = identity.source === 'reply_author'
+            ? `the author of the replied-to message (${identity.userId})`
+            : `your Discord ID (${identity.userId})`;
         return configured
-            ? { error: 'profile_inactive', message: 'Your Aether driver profile exists in this guild but is inactive. Ask an Aether admin to reactivate it.' }
-            : { error: 'profile_not_found', message: `No Aether profile is registered for your Discord ID in this guild (${message.guildId}).` };
+            ? { error: 'profile_inactive', message: `The Aether driver profile for ${subject} exists in this guild but is inactive. Ask an Aether admin to reactivate it.` }
+            : { error: 'profile_not_found', message: `No Aether profile is registered for ${subject} in this guild (${message.guildId}).` };
     }
     let lapTimeCs;
     try {
@@ -718,6 +740,7 @@ async function submitAetherProofFromMessage(message) {
             $set: {
                 lapTimeCs, lapTimeDisplay: aether.formatLapTime(lapTimeCs), tyre,
                 imageProofUrl: images[0].url, videoProofUrl: videos[0].url,
+                submittedByUserId: identity.userId, requestedByUserId: String(message.author.id),
                 imageProofMeta: { source: 'aether-ocr', marker: '(T)', lapCount, bestLapRow: 2, confidence: proof.confidence, notes: proof.notes || '' },
                 videoProofMeta: { contentType: attachmentMimeType(videos[0], 'video'), name: videos[0].name || '', size: videos[0].size || null }
             },

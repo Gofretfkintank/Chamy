@@ -61,7 +61,8 @@ const AetherSubmission = mongoose.models.AetherSubmission || mongoose.model('Aet
     guildId: { type: String, required: true, index: true }, sessionId: { type: mongoose.Schema.Types.ObjectId, required: true, index: true },
     licenseKey: { type: String, required: true }, lapTimeCs: Number, lapTimeDisplay: String,
     tyre: String, imageProofUrl: String, videoProofUrl: String, imageProofMeta: mongoose.Schema.Types.Mixed,
-    videoProofMeta: mongoose.Schema.Types.Mixed, attempts: { type: Number, default: 0 }, createdAt: { type: Date, default: Date.now }
+    videoProofMeta: mongoose.Schema.Types.Mixed, submittedByUserId: String, requestedByUserId: String,
+    attempts: { type: Number, default: 0 }, createdAt: { type: Date, default: Date.now }
 }));
 AetherSubmission.schema.index({ guildId: 1, sessionId: 1, licenseKey: 1 }, { unique: true });
 const AetherLicenseKey = mongoose.models.AetherLicenseKey || mongoose.model('AetherLicenseKey', schema({
