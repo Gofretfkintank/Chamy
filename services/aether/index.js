@@ -285,6 +285,19 @@ function formatLapTime(cs) {
     const minutes = Math.floor(totalSeconds / 60);
     return `${minutes}:${String(seconds).padStart(2, '0')}.${String(cs % 100).padStart(2, '0')}`;
 }
+function validateLapTime(cs, config = CONFIG) {
+    const value = Number(cs);
+    const minimum = Number(config.MIN_LAP_TIME_CS ?? 1000);
+    const maximum = Number(config.MAX_LAP_TIME_CS ?? 1000000);
+    if (!Number.isInteger(value) || value <= 0) throw new Error('Lap time must be a positive integer in centiseconds.');
+    if (!Number.isFinite(minimum) || !Number.isFinite(maximum) || minimum < 1 || maximum < minimum) {
+        throw new Error('Aether lap-time limits are misconfigured.');
+    }
+    if (value < minimum || value > maximum) {
+        throw new Error(`Lap time must be between ${minimum}cs and ${maximum}cs.`);
+    }
+    return value;
+}
 function formatLeaderboard(session = {}, submissions = [], series = 'F1', options = {}) {
     const maxRounds = options.maxRounds || aetherConfig.maxRounds(series);
     const rows = submissions.filter(s => !s.series || String(s.series).toUpperCase() === String(series).toUpperCase());
@@ -333,5 +346,5 @@ module.exports = {
     DEFAULT_REDUCTIONS, getRoleConfig, setRoleConfig, authorize, resolveRole, roleIds, roleRank,
     syncSessionStatus, getActiveSession, expireSanctions,
     upsertCentral, cleanupExpiredData, startRetentionWorker, AETHER_RETENTION_MS,
-    parseLapTime, formatLapTime, formatLeaderboard, generateCode, reductions, invalidateGuildCaches
+    parseLapTime, formatLapTime, validateLapTime, formatLeaderboard, generateCode, reductions, invalidateGuildCaches
 };

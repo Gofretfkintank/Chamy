@@ -82,6 +82,10 @@ idempotent: source integer IDs are stored as `legacyId` and writes use
 deleted. SQLite proof paths are retained as legacy metadata; new submissions
 use Discord URLs and proof metadata.
 
+Lap times are stored as integer centiseconds. The production validation floor
+is `00:10.00`; normal F1 laps such as `1:06.01` are accepted, while malformed,
+non-positive, or unreasonably large values are rejected.
+
 ## Session scheduling
 
 Chamy runs a restart-safe scheduler from `services/aether/scheduler.js`. It

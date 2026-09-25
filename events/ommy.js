@@ -694,11 +694,13 @@ async function submitAetherProofFromMessage(message) {
         guildId: message.guildId, discordUserId: message.author.id, active: true
     }).lean();
     if (!profile) return { error: 'profile_not_found', message: 'You do not have an active Aether driver profile in this guild.' };
-    const lapTimeCs = aether.parseLapTime(proof.bestLapTime);
-    const settings = aether.getConfig();
-    if (lapTimeCs < Number(settings.MIN_LAP_TIME_CS || 0) || lapTimeCs > Number(settings.MAX_LAP_TIME_CS || Number.MAX_SAFE_INTEGER)) {
-        return { error: 'invalid_lap_time', message: 'The extracted lap time is outside the configured Aether limits.' };
+    let lapTimeCs;
+    try {
+        lapTimeCs = aether.validateLapTime(aether.parseLapTime(proof.bestLapTime), aether.getConfig());
+    } catch (error) {
+        return { error: 'invalid_lap_time', message: `The extracted lap time is invalid: ${error.message}` };
     }
+    const settings = aether.getConfig();
     const existing = await aether.AetherSubmission.findOne({ guildId: message.guildId, sessionId: session._id, licenseKey: profile.licenseKey }).lean();
     const attempts = Number(existing?.attempts || 0);
     if (attempts >= Number(settings.DEFAULT_TOTAL_ATTEMPTS || 5)) return { error: 'attempt_limit', message: 'The maximum number of attempts for this session has been reached.' };
