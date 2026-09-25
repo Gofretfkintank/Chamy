@@ -1247,7 +1247,7 @@ const AETHER_TOOL_DECLARATIONS = [
     { name: 'aether_issue_sanction', description: 'Issue an Aether TIME or DSQ sanction. Requires the configured Aether start role.', parameters: { type: 'object', properties: { target_user_id: { type: 'string' }, type: { type: 'string', enum: ['TIME', 'DSQ'] }, penalty_seconds: { type: 'number' }, reason: { type: 'string' }, expiration_days: { type: 'integer' } }, required: ['target_user_id', 'type', 'reason'] } },
     { name: 'aether_get_sanctions', description: 'List Aether sanctions for a driver.', parameters: { type: 'object', properties: { target_user_id: { type: 'string' } }, required: ['target_user_id'] } },
     { name: 'aether_remove_sanction', description: 'Remove an active Aether sanction by code. Admin only.', parameters: { type: 'object', properties: { sanction_code: { type: 'string' } }, required: ['sanction_code'] } }
-    ,{ name: 'aether_admin', description: 'Aether administrative operations. Every operation requires the configured Aether start role.', parameters: { type: 'object', properties: { operation: { type: 'string', enum: ['session_modify','session_list','session_export','session_refresh','session_clear','profile_create','profile_update','profile_delete','profile_list','emoji_setup','reduction_table'] }, session_id: { type: 'string' }, profile_id: { type: 'string' }, patch: { type: 'object' }, filters: { type: 'object' }, emojis: { type: 'object' }, reductions: { type: 'object' } }, required: ['operation'] } }
+    ,    { name: 'aether_admin', description: 'Aether administration. Read-only profile_list is available to configured league roles such as F1; session, profile mutation, emoji, and reduction administration requires the configured Aether start role.', parameters: { type: 'object', properties: { operation: { type: 'string', enum: ['session_modify','session_list','session_export','session_refresh','session_clear','profile_create','profile_update','profile_delete','profile_list','emoji_setup','reduction_table'] }, session_id: { type: 'string' }, profile_id: { type: 'string' }, patch: { type: 'object' }, filters: { type: 'object' }, emojis: { type: 'object' }, reductions: { type: 'object' } }, required: ['operation'] } }
 ];
 // Legacy Aether command names remain available as chat-tool aliases. They
 // dispatch into the native operations below instead of silently disappearing.
@@ -1520,9 +1520,16 @@ async function executeTool(name, args, client, guildId, userPrompt, message) {
             return { success: true, submission };
         }
         case 'aether_admin': {
-            const auth = await aether.authorize(message?.member, guildId, 'admin');
-            if (!auth.allowed) return { error: 'permission_denied', message: 'The configured Aether start role is required.' };
             const op = String(args.operation || '');
+            const auth = await aether.authorize(message?.member, guildId, op === 'profile_list' ? 'league' : 'admin');
+            if (!auth.allowed) {
+                return {
+                    error: 'permission_denied',
+                    message: op === 'profile_list'
+                        ? 'A configured Aether league role, such as the F1 driver role, is required.'
+                        : 'The configured Aether start role is required.'
+                };
+            }
             if (op === 'session_list') {
                 const filter = { guildId };
                 if (args.filters?.status) filter.status = String(args.filters.status).toUpperCase();

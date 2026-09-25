@@ -194,8 +194,8 @@ async function getRoleConfig(guildId) {
     return {
         adminRoleIds: normalizeIds(settings.adminRoleIds?.length ? settings.adminRoleIds : (configuredAdmin.length ? configuredAdmin : CONFIG[`${guildPrefix}ADMIN_ROLE_IDS`] || CONFIG.AETHER_ADMIN_ROLE_IDS)),
         startRoleIds: normalizeIds(settings.startRoleIds?.length ? settings.startRoleIds : (configuredStart.length ? configuredStart : CONFIG[`${guildPrefix}START_ROLE_IDS`] || CONFIG.AETHER_START_ROLE_IDS)),
-        roleOrder: normalizeIds(settings.roleOrder || CONFIG[`${guildPrefix}ROLE_ORDER`] || CONFIG.AETHER_ROLE_ORDER),
-        allowedRoleIds: normalizeIds(settings.allowedRoleIds || CONFIG[`${guildPrefix}ALLOWED_ROLE_IDS`] || CONFIG.AETHER_ALLOWED_ROLE_IDS)
+        roleOrder: normalizeIds(settings.roleOrder?.length ? settings.roleOrder : CONFIG[`${guildPrefix}ROLE_ORDER`] || CONFIG.AETHER_ROLE_ORDER),
+        allowedRoleIds: normalizeIds(settings.allowedRoleIds?.length ? settings.allowedRoleIds : CONFIG[`${guildPrefix}ALLOWED_ROLE_IDS`] || CONFIG.AETHER_ALLOWED_ROLE_IDS)
     };
 }
 async function setRoleConfig(guildId, patch) {
@@ -210,7 +210,13 @@ async function authorize(member, guildId, kind = 'member') {
     const role = resolveRole(member, c);
     const admin = role === 'admin';
     const start = role === 'start';
-    const allowed = kind === 'admin' ? start : kind === 'start' ? start : true;
+    const allowed = kind === 'admin'
+        ? start
+        : kind === 'start'
+            ? start
+            : kind === 'league'
+                ? hasAllowedRole(member, c.allowedRoleIds)
+                : true;
     return { allowed, role, reason: allowed ? null : `${kind}_role_required` };
 }
 async function syncSessionStatus(session) {
