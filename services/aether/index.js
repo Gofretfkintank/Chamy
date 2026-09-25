@@ -168,7 +168,14 @@ function normalizeIds(value) {
 async function findProfileForUser(guildId, userId, options = {}) {
     const filter = { guildId: String(guildId), discordUserId: String(userId) };
     if (options.activeOnly) filter.active = { $ne: false };
-    return AetherProfile.findOne(filter).sort({ active: -1, updatedAt: -1, createdAt: -1 }).lean();
+    const typed = await AetherProfile.findOne(filter).sort({ active: -1, updatedAt: -1, createdAt: -1 }).lean();
+    if (typed) return typed;
+    const central = await AetherData.findOne({
+        guildId: String(guildId), entityType: 'profile',
+        'data.discordUserId': String(userId),
+        ...(options.activeOnly ? { 'data.active': { $ne: false } } : {})
+    }).lean();
+    return central?.data || null;
 }
 function roleIds(member) {
     return new Set(member?.roles?.cache ? [...member.roles.cache.keys()].map(String) : (member?.roles || []).map(r => String(r.id || r)));

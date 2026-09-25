@@ -22,7 +22,10 @@
 //   2. "@<bot> <question>"
 // ─────────────────────────────────────────────────────────────────────────────
 
-const { PermissionsBitField, ChannelType, EmbedBuilder } = require('discord.js');
+const {
+    PermissionsBitField, ChannelType, EmbedBuilder,
+    ActionRowBuilder, ButtonBuilder, ButtonStyle
+} = require('discord.js');
 const { GoogleGenerativeAI }               = require('@google/generative-ai');
 const axios                                = require('axios');
 
@@ -693,6 +696,80 @@ async function resolveAetherSubmissionIdentity(message) {
     };
 }
 
+function discordTimestamp(value) {
+    const date = value ? new Date(value) : null;
+    const seconds = date && Number.isFinite(date.getTime()) ? Math.floor(date.getTime() / 1000) : 0;
+    return `<t:${seconds}:F>`;
+}
+
+async function sendAetherProfileList(message, profiles) {
+    const perPage = 3;
+    const totalPages = Math.max(1, Math.ceil(profiles.length / perPage));
+    const createEmbed = page => {
+        const pageProfiles = profiles.slice(page * perPage, (page + 1) * perPage);
+        const embed = new EmbedBuilder()
+            .setColor(0x5865F2)
+            .setTitle('👤 Registered User Profiles')
+            .setDescription(`Page ${page + 1}/${totalPages} | Total profiles: ${profiles.length}`);
+        for (const profile of pageProfiles) {
+            const name = String(profile.name || 'Unknown');
+            const number = profile.driverNumber ?? '?';
+            const team = profile.team || '❓';
+            const currentTeam = profile.currentTeam || team;
+            embed.addFields({
+                name: `${name} (#${number})`,
+                value: [
+                    `**License Key:** \`${profile.licenseKey || 'N/A'}\``,
+                    `**Driver Name:** ${name}`,
+                    `**Driver Number:** #${number}`,
+                    `**Nationality:** ${profile.nationality || 'N/A'}`,
+                    `**Team (Racing):** ${team}`,
+                    `**Team (Display):** ${currentTeam}`,
+                    `**Series:** ${profile.series || 'F1'}`,
+                    `**Discord User:** ${profile.discordUsername || 'N/A'}`,
+                    `**Discord ID:** \`${profile.discordUserId || '?'}\``,
+                    `**Registered:** ${discordTimestamp(profile.createdAt)}`,
+                    `**Updated:** ${discordTimestamp(profile.updatedAt)}`
+                ].join('\n'),
+                inline: false
+            });
+        }
+        if (!pageProfiles.length) embed.setDescription(`Page 1/1 | Total profiles: 0\nNo registered profiles yet.`);
+        return embed;
+    };
+    const makeRow = page => new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId('aether_profiles_first').setLabel('⏮️ First').setStyle(ButtonStyle.Primary).setDisabled(page === 0),
+        new ButtonBuilder().setCustomId('aether_profiles_prev').setLabel('◀️ Prev').setStyle(ButtonStyle.Primary).setDisabled(page === 0),
+        new ButtonBuilder().setCustomId('aether_profiles_page').setLabel(`Page ${page + 1}/${totalPages}`).setStyle(ButtonStyle.Secondary).setDisabled(true),
+        new ButtonBuilder().setCustomId('aether_profiles_next').setLabel('Next ▶️').setStyle(ButtonStyle.Primary).setDisabled(page >= totalPages - 1),
+        new ButtonBuilder().setCustomId('aether_profiles_last').setLabel('Last ⏭️').setStyle(ButtonStyle.Primary).setDisabled(page >= totalPages - 1)
+    );
+    const sent = await message.reply({
+        embeds: [createEmbed(0)],
+        components: [makeRow(0)]
+    });
+    if (totalPages <= 1) return sent;
+    const collector = sent.createMessageComponentCollector({ time: 15 * 60 * 1000 });
+    let page = 0;
+    collector.on('collect', async interaction => {
+        if (interaction.user.id !== message.author.id) {
+            await interaction.reply({ content: 'Only the person who requested this profile list can navigate it.', ephemeral: true });
+            return;
+        }
+        if (interaction.customId === 'aether_profiles_first') page = 0;
+        if (interaction.customId === 'aether_profiles_prev') page = Math.max(0, page - 1);
+        if (interaction.customId === 'aether_profiles_next') page = Math.min(totalPages - 1, page + 1);
+        if (interaction.customId === 'aether_profiles_last') page = totalPages - 1;
+        await interaction.update({ embeds: [createEmbed(page)], components: [makeRow(page)] });
+    });
+    collector.on('end', async () => {
+        await sent.edit({ components: [makeRow(page).setComponents(
+            ...makeRow(page).components.map(component => ButtonBuilder.from(component).setDisabled(true))
+        )] }).catch(() => {});
+    });
+    return sent;
+}
+
 async function submitAetherProofFromMessage(message) {
     const { images, videos } = await getAetherProofAttachments(message);
     if (!images.length) return { error: 'proof_image_required', message: 'Attach or reply to a message containing the lap-timer screenshot.' };
@@ -715,9 +792,15 @@ async function submitAetherProofFromMessage(message) {
         const subject = identity.source === 'reply_author'
             ? `the author of the replied-to message (${identity.userId})`
             : `your Discord ID (${identity.userId})`;
+        const otherGuildProfile = await aether.AetherProfile.findOne({ discordUserId: identity.userId }).select('guildId').lean().catch(() => null);
         return configured
             ? { error: 'profile_inactive', message: `The Aether driver profile for ${subject} exists in this guild but is inactive. Ask an Aether admin to reactivate it.` }
-            : { error: 'profile_not_found', message: `No Aether profile is registered for ${subject} in this guild (${message.guildId}).` };
+            : {
+                error: 'profile_not_found',
+                message: otherGuildProfile
+                    ? `The profile exists, but it is registered to guild ${otherGuildProfile.guildId}, not the current guild ${message.guildId}.`
+                    : `No Aether profile is registered for ${subject} in this guild (${message.guildId}).`
+            };
     }
     let lapTimeCs;
     try {
@@ -1462,7 +1545,9 @@ async function executeTool(name, args, client, guildId, userPrompt, message) {
         case 'aether_list_profiles': {
             const auth = await aether.authorize(message?.member, guildId, 'league');
             if (!auth.allowed) return { error: 'permission_denied', message: 'A configured Aether league role, such as the F1 driver role, is required.' };
-            return { profiles: await aether.AetherProfile.find({ guildId }).sort({ createdAt: -1 }).limit(100).lean() };
+            const profiles = await aether.AetherProfile.find({ guildId }).sort({ createdAt: -1 }).limit(100).lean();
+            await sendAetherProfileList(message, profiles);
+            return { directResponse: true, profile_count: profiles.length };
         }
         case 'aether_submit': {
             return await submitAetherProofFromMessage(message);
@@ -1621,7 +1706,11 @@ async function executeTool(name, args, client, guildId, userPrompt, message) {
                 return session ? { success: true, session } : { error: 'not_found', message: 'Session not found.' };
             }
             if (['profile_create','profile_update','profile_delete','profile_list'].includes(op)) {
-                if (op === 'profile_list') return { profiles: await aether.AetherProfile.find({ guildId }).sort({ createdAt: -1 }).limit(100).lean() };
+                if (op === 'profile_list') {
+                    const profiles = await aether.AetherProfile.find({ guildId }).sort({ createdAt: -1 }).limit(100).lean();
+                    await sendAetherProfileList(message, profiles);
+                    return { directResponse: true, profile_count: profiles.length };
+                }
                 if (op === 'profile_delete') {
                     const profile = await aether.AetherProfile.findOneAndUpdate({ _id: args.profile_id, guildId }, { $set: { active: false } }, { new: true }).lean();
                     return profile ? { success: true, profile } : { error: 'not_found', message: 'Profile not found.' };
@@ -2259,6 +2348,9 @@ AETHER SESSION TOOLS:
 - After aether_start_session succeeds, report the returned Discord timestamps
   exactly. The scheduler activates the session and posts the announcement at
   start_ts; do not claim it started immediately when it is scheduled.
+- For profile-list requests, call aether_list_profiles or aether_admin with
+  operation profile_list. That tool sends the exact paginated Discord embed;
+  do not replace it with a text table or summarize the profiles yourself.
 
 ${isHomeGuild ? `OM LEAGUE KNOWLEDGE (no tool needed):
 - Registration: For joining the league or a championship season, refer the user to the SERVER KNOWLEDGE BASE section above or use the scan_channel_messages tool to check the relevant channel — do NOT just say "/register" unless the knowledge base explicitly confirms that's the correct step.
@@ -2530,6 +2622,7 @@ ${profileCtx}${knowledgeCtx}${personaTag}`;
             // Gemini may chain tool calls (e.g. get_channel_image fails → tries scan_channel_messages).
             // We keep executing until Gemini returns actual text or we hit the round limit.
             let reply           = null;
+            let directResponseSent = false;
             let currentResponse;
             if (Array.isArray(messageContent) && messageContent.some(p => p.inlineData)) {
                 // Multimodal send — if Gemini rejects (size limit, tools+vision conflict, etc.)
@@ -2561,6 +2654,7 @@ ${profileCtx}${knowledgeCtx}${personaTag}`;
                     let toolResult;
                     try {
                         toolResult = await executeTool(fc.name, fc.args || {}, client, message.guildId, prompt, message);
+                        if (toolResult?.directResponse === true) directResponseSent = true;
                     } catch (err) {
                         console.error(`[OMMY TOOL ${fc.name}]`, err.message);
                         toolResult = { error: 'Tool failed.' };
@@ -2595,7 +2689,7 @@ ${profileCtx}${knowledgeCtx}${personaTag}`;
                 { role: 'assistant', content: reply }
             ]);
 
-            sendOmmyReply(message, reply);
+            if (!directResponseSent) sendOmmyReply(message, reply);
 
         } catch (err) {
             const is503 = err?.status === 503 || (err?.message || '').includes('503') || (err?.message || '').includes('Service Unavailable');
@@ -2620,7 +2714,10 @@ ${profileCtx}${knowledgeCtx}${personaTag}`;
                         const fbFnResponses = [];
                         for (const fc of fbCalls) {
                             let toolResult;
-                            try { toolResult = await executeTool(fc.name, fc.args || {}, client, message.guildId, prompt, message); }
+                            try {
+                                toolResult = await executeTool(fc.name, fc.args || {}, client, message.guildId, prompt, message);
+                                if (toolResult?.directResponse === true) directResponseSent = true;
+                            }
                             catch { toolResult = { error: 'Tool failed.' }; }
                             const resObj = toolResult && typeof toolResult === 'object' ? toolResult : { result: toolResult };
                             fbFnResponses.push({ functionResponse: { name: fc.name, response: resObj } });
