@@ -191,11 +191,17 @@ async function getRoleConfig(guildId) {
     const configuredAdmin = await cfg.getList(guildId, 'aether:adminRoles').catch(() => []);
     const configuredStart = await cfg.getList(guildId, 'aether:startRoles').catch(() => []);
     const guildPrefix = `AETHER_GUILD_${String(guildId).replace(/[^0-9A-Za-z_]/g, '_')}_`;
+    const envAdmin = CONFIG[`${guildPrefix}ADMIN_ROLE_IDS`];
+    const envStart = CONFIG[`${guildPrefix}START_ROLE_IDS`];
+    const envOrder = CONFIG[`${guildPrefix}ROLE_ORDER`];
+    const envAllowed = CONFIG[`${guildPrefix}ALLOWED_ROLE_IDS`];
     return {
-        adminRoleIds: normalizeIds(settings.adminRoleIds?.length ? settings.adminRoleIds : (configuredAdmin.length ? configuredAdmin : CONFIG[`${guildPrefix}ADMIN_ROLE_IDS`] || CONFIG.AETHER_ADMIN_ROLE_IDS)),
-        startRoleIds: normalizeIds(settings.startRoleIds?.length ? settings.startRoleIds : (configuredStart.length ? configuredStart : CONFIG[`${guildPrefix}START_ROLE_IDS`] || CONFIG.AETHER_START_ROLE_IDS)),
-        roleOrder: normalizeIds(settings.roleOrder?.length ? settings.roleOrder : CONFIG[`${guildPrefix}ROLE_ORDER`] || CONFIG.AETHER_ROLE_ORDER),
-        allowedRoleIds: normalizeIds(settings.allowedRoleIds?.length ? settings.allowedRoleIds : CONFIG[`${guildPrefix}ALLOWED_ROLE_IDS`] || CONFIG.AETHER_ALLOWED_ROLE_IDS)
+        // A guild-specific Aether.env mapping is an explicit deployment
+        // override, so stale Mongo role settings cannot lock out the league.
+        adminRoleIds: normalizeIds(envAdmin || (settings.adminRoleIds?.length ? settings.adminRoleIds : (configuredAdmin.length ? configuredAdmin : CONFIG.AETHER_ADMIN_ROLE_IDS))),
+        startRoleIds: normalizeIds(envStart || (settings.startRoleIds?.length ? settings.startRoleIds : (configuredStart.length ? configuredStart : CONFIG.AETHER_START_ROLE_IDS))),
+        roleOrder: normalizeIds(envOrder || (settings.roleOrder?.length ? settings.roleOrder : CONFIG.AETHER_ROLE_ORDER)),
+        allowedRoleIds: normalizeIds(envAllowed || (settings.allowedRoleIds?.length ? settings.allowedRoleIds : CONFIG.AETHER_ALLOWED_ROLE_IDS))
     };
 }
 async function setRoleConfig(guildId, patch) {

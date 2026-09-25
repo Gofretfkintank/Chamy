@@ -1231,6 +1231,7 @@ const AETHER_TOOL_DECLARATIONS = [
     { name: 'aether_end_session', description: 'End an active Aether session.', parameters: { type: 'object', properties: { session_id: { type: 'string' } }, required: ['session_id'] } },
     { name: 'aether_register_profile', description: 'Register the invoking driver in Aether and issue a unique three-character license key.', parameters: { type: 'object', properties: { name: { type: 'string' }, driver_number: { type: 'integer' }, nationality: { type: 'string' }, team: { type: 'string' }, series: { type: 'string' } }, required: ['name', 'driver_number'] } },
     { name: 'aether_get_profile', description: 'Get an Aether driver profile by license key or Discord member.', parameters: { type: 'object', properties: { license_key: { type: 'string' }, user_id: { type: 'string' } } } },
+    { name: 'aether_list_profiles', description: 'List Aether driver profiles for this guild. Available to configured Aether league roles such as the F1 driver role; it does not require the start/admin role.', parameters: { type: 'object', properties: {} } },
     { name: 'aether_submit', description: 'Submit the invoking driver’s attached or replied-to Aether proof. Chamy requires a visible (T) marker, reads the second-row best lap, and enforces the 12-lap limit for non-race sessions.', parameters: { type: 'object', properties: {} } },
     { name: 'aether_submit_proof', description: 'Automatically inspect the invoking user’s attached or replied-to Aether screenshot and video, require the visible (T) marker, extract the second-row best lap and lap count, enforce the 12-lap limit for qualifying/sprint/practice/training, then submit using the user’s own Aether profile.', parameters: { type: 'object', properties: {} } },
     { name: 'aether_leaderboard', description: 'Render the exact Aether leaderboard text for a session.', parameters: { type: 'object', properties: { session_id: { type: 'string' } } } },
@@ -1411,6 +1412,11 @@ async function executeTool(name, args, client, guildId, userPrompt, message) {
             else query.discordUserId = String(args.user_id || message.author.id);
             const profile = await aether.AetherProfile.findOne(query).lean();
             return profile ? { found: true, profile } : { found: false, message: 'No Aether profile found in this guild.' };
+        }
+        case 'aether_list_profiles': {
+            const auth = await aether.authorize(message?.member, guildId, 'league');
+            if (!auth.allowed) return { error: 'permission_denied', message: 'A configured Aether league role, such as the F1 driver role, is required.' };
+            return { profiles: await aether.AetherProfile.find({ guildId }).sort({ createdAt: -1 }).limit(100).lean() };
         }
         case 'aether_submit': {
             return await submitAetherProofFromMessage(message);
