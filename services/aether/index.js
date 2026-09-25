@@ -165,17 +165,89 @@ function startRetentionWorker() {
 function normalizeIds(value) {
     return [...new Set((Array.isArray(value) ? value : String(value || '').split(',')).map(String).map(s => s.trim()).filter(Boolean))];
 }
+
+function firstPresentField(paths) {
+    return paths.reduceRight((fallback, field) => ({ $ifNull: [`$${field}`, fallback] }), null);
+}
+
+function exactSnowflakeMatch(fieldPaths, expected) {
+    const value = firstPresentField(fieldPaths);
+    return {
+        $and: [
+            { $in: [{ $type: value }, ['string', 'long']] },
+            { $eq: [{ $convert: { input: value, to: 'string', onError: '', onNull: '' } }, String(expected)] }
+        ]
+    };
+}
+
+function normalizeStoredProfile(profile, guildId, userId) {
+    if (!profile) return null;
+    const normalized = {
+        ...profile,
+        guildId: String(profile.guildId ?? profile.guild_id ?? guildId),
+        discordUserId: String(profile.discordUserId ?? profile.discord_user_id ?? profile.user_id ?? userId),
+        licenseKey: String(profile.licenseKey ?? profile.license_key ?? ''),
+        name: String(profile.name ?? profile.driver_name ?? 'Unknown'),
+        driverNumber: profile.driverNumber ?? profile.driver_number,
+        discordUsername: profile.discordUsername ?? profile.discord_username ?? '',
+        currentTeam: profile.currentTeam ?? profile.current_team ?? '',
+        active: profile.active !== false
+    };
+    return normalized;
+}
+
 async function findProfileForUser(guildId, userId, options = {}) {
-    const filter = { guildId: String(guildId), discordUserId: String(userId) };
+    const normalizedGuildId = String(guildId);
+    const normalizedUserId = String(userId);
+    const filter = { guildId: normalizedGuildId, discordUserId: normalizedUserId };
     if (options.activeOnly) filter.active = { $ne: false };
-    const typed = await AetherProfile.findOne(filter).sort({ active: -1, updatedAt: -1, createdAt: -1 }).lean();
-    if (typed) return typed;
-    const central = await AetherData.findOne({
-        guildId: String(guildId), entityType: 'profile',
-        'data.discordUserId': String(userId),
-        ...(options.activeOnly ? { 'data.active': { $ne: false } } : {})
-    }).lean();
-    return central?.data || null;
+    let profile = await AetherProfile.findOne(filter)
+        .sort({ active: -1, updatedAt: -1, createdAt: -1 }).lean();
+
+    if (!profile) {
+        const [legacyShape] = await AetherProfile.aggregate([
+            { $match: { $expr: { $and: [
+                exactSnowflakeMatch(['guildId', 'guild_id'], normalizedGuildId),
+                exactSnowflakeMatch(['discordUserId', 'discord_user_id', 'user_id'], normalizedUserId)
+            ] } } },
+            { $sort: { active: -1, updatedAt: -1, createdAt: -1 } },
+            { $limit: 1 }
+        ]);
+        profile = legacyShape || null;
+    }
+
+    if (!profile) {
+        const central = await AetherData.findOne({
+            guildId: normalizedGuildId, entityType: 'profile',
+            'data.discordUserId': normalizedUserId
+        }).lean();
+        profile = central?.data || null;
+    }
+    if (!profile) {
+        const [centralShape] = await AetherData.aggregate([
+            { $match: { entityType: 'profile', $expr: { $and: [
+                exactSnowflakeMatch(['guildId', 'guild_id'], normalizedGuildId),
+                exactSnowflakeMatch([
+                    'data.discordUserId', 'data.discord_user_id', 'data.user_id'
+                ], normalizedUserId)
+            ] } } },
+            { $limit: 1 }
+        ]);
+        profile = centralShape?.data || null;
+    }
+
+    const result = normalizeStoredProfile(profile, normalizedGuildId, normalizedUserId);
+    if (options.activeOnly && result?.active === false) return null;
+    return result;
+}
+
+async function findProfileGuildForUser(userId) {
+    const [profile] = await AetherProfile.aggregate([
+        { $match: { $expr: exactSnowflakeMatch(['discordUserId', 'discord_user_id', 'user_id'], userId) } },
+        { $project: { guildId: { $convert: { input: { $ifNull: ['$guildId', '$guild_id'] }, to: 'string', onError: '', onNull: '' } } } },
+        { $limit: 1 }
+    ]);
+    return profile?.guildId || null;
 }
 function roleIds(member) {
     return new Set(member?.roles?.cache ? [...member.roles.cache.keys()].map(String) : (member?.roles || []).map(r => String(r.id || r)));
@@ -360,5 +432,5 @@ module.exports = {
     syncSessionStatus, getActiveSession, expireSanctions,
     upsertCentral, cleanupExpiredData, startRetentionWorker, AETHER_RETENTION_MS,
     parseLapTime, formatLapTime, validateLapTime, formatLeaderboard, generateCode, reductions, invalidateGuildCaches,
-    findProfileForUser
+    findProfileForUser, findProfileGuildForUser
 };

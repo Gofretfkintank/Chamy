@@ -792,14 +792,21 @@ async function submitAetherProofFromMessage(message) {
         const subject = identity.source === 'reply_author'
             ? `the author of the replied-to message (${identity.userId})`
             : `your Discord ID (${identity.userId})`;
-        const otherGuildProfile = await aether.AetherProfile.findOne({ discordUserId: identity.userId }).select('guildId').lean().catch(() => null);
+        const otherGuildId = await aether.findProfileGuildForUser(identity.userId);
+        console.warn('[AETHER PROFILE LOOKUP MISS]', {
+            guildId: String(message.guildId),
+            userId: identity.userId,
+            identitySource: identity.source,
+            database: aether.AetherProfile.db.name || '(default)',
+            collection: aether.AetherProfile.collection.collectionName
+        });
         return configured
             ? { error: 'profile_inactive', message: `The Aether driver profile for ${subject} exists in this guild but is inactive. Ask an Aether admin to reactivate it.` }
             : {
                 error: 'profile_not_found',
-                message: otherGuildProfile
-                    ? `The profile exists, but it is registered to guild ${otherGuildProfile.guildId}, not the current guild ${message.guildId}.`
-                    : `No Aether profile is registered for ${subject} in this guild (${message.guildId}).`
+                message: otherGuildId
+                    ? `The profile exists, but it is registered to guild ${otherGuildId}, not the current guild ${message.guildId}.`
+                    : `Chamy Mongo collection \`${aether.AetherProfile.collection.collectionName}\` has no profile for ${subject} in guild ${message.guildId}. Profiles stored only in the original Aether SQLite database must be migrated into this Chamy database before submissions can use them.`
             };
     }
     let lapTimeCs;

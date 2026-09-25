@@ -38,6 +38,12 @@ marker, row, lap count, and OCR confidence are stored with the submission.
 The `aether_submit` and `aether_submit_proof` chat tools use this same
 validated path; manually supplied lap times cannot bypass proof validation.
 
+Reply submissions resolve the replied-to Discord author's profile in the
+current guild's Chamy Mongo database. A profile that exists only in the
+original Aether SQLite database is not visible at runtime until it has been
+migrated. When a lookup misses, Chamy reports the Mongo collection it checked
+and logs the resolved user ID, guild, database, and collection for diagnosis.
+
 Images are accepted by Discord MIME type or filename extension, including
 PNG, JPEG, WebP, GIF, BMP, and AVIF. Video proof accepts MP4, MOV, WebM,
 MKV, AVI, and M4V. This makes uploads robust when Discord reports
@@ -81,6 +87,13 @@ idempotent: source integer IDs are stored as `legacyId` and writes use
 `(guildId, legacyId)` keys. Existing Mongo documents are not overwritten or
 deleted. SQLite proof paths are retained as legacy metadata; new submissions
 use Discord URLs and proof metadata.
+
+For a deployment-time one-shot import, provide
+`AETHER_MIGRATION_DB_GZIP_BASE64` (the gzip-compressed SQLite file encoded as
+base64) and `AETHER_MIGRATION_GUILD_ID` in the bot's secret environment, then
+restart Chamy. The profile must be imported into the same Mongo database and
+guild that the bot uses for submissions. Remove the migration payload after
+the successful import to avoid rerunning it on later restarts.
 
 Lap times are stored as integer centiseconds. The production validation floor
 is `00:10.00`; normal F1 laps such as `1:06.01` are accepted, while malformed,
