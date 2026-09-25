@@ -14,8 +14,7 @@ const sanctionSchema = new mongoose.Schema({
     // Mongo _id, and how a penalty is looked up to remove it later.
     sanctionCode: {
         type: String,
-        required: true,
-        unique: true
+        required: true
     },
     targetUserId: {
         type: String,
@@ -67,7 +66,7 @@ const sanctionSchema = new mongoose.Schema({
     },
     status: {
         type: String,
-        enum: ['ACTIVE', 'REMOVED'],
+        enum: ['ACTIVE', 'COMPLETED', 'REMOVED'],
         default: 'ACTIVE'
     },
     removedBy: {
@@ -79,5 +78,7 @@ const sanctionSchema = new mongoose.Schema({
         default: null
     }
 });
+
+sanctionSchema.index({ guildId: 1, sanctionCode: 1 }, { unique: true });
 
 module.exports = mongoose.model('Sanction', sanctionSchema);

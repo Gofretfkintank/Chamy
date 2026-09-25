@@ -1,0 +1,133 @@
+{
+  "description": "Complete emoji configuration with all Discord emoji IDs populated - READY FOR PRODUCTION",
+  "last_updated": "2026-04-15",
+  "setup_status": "COMPLETE - All emoji IDs populated",
+
+  "F1_teams": {
+    "Ferrari": {
+      "emoji_format": "<:Ferrari:1236656476341272636>",
+      "emoji_id": "1236656476341272636"
+    },
+    "Red Bull": {
+      "emoji_format": "<:RedBull:1236656282719752202>",
+      "emoji_id": "1236656282719752202"
+    },
+    "Mercedes": {
+      "emoji_format": "<:Mercedes:1236656413359608010>",
+      "emoji_id": "1236656413359608010"
+    },
+    "McLaren": {
+      "emoji_format": "<:McLaren:1236656547208101972>",
+      "emoji_id": "1236656547208101972"
+    },
+    "Porsche": {
+      "emoji_format": "<:Porsche:1402862013302050816>",
+      "emoji_id": "1402862013302050816"
+    },
+    "Williams": {
+      "emoji_format": "<:Williams:1236656697494343710>",
+      "emoji_id": "1236656697494343710"
+    },
+    "Aston Martin": {
+      "emoji_format": "<:AstonMartin:1236656616527368212>",
+      "emoji_id": "1236656616527368212"
+    },
+    "BMW": {
+      "emoji_format": "<:bmw:1392771004765437952>",
+      "emoji_id": "1392771004765437952"
+    },
+    "Alpine": {
+      "emoji_format": "<:Alpine:1236657237380960396>",
+      "emoji_id": "1236657237380960396"
+    },
+    "DK Motorsport": {
+      "emoji_format": "<:dk_motorsport:1511986760194981888>",
+      "emoji_id": "1511986760194981888"
+    }
+  },
+
+  "F2_teams": {
+    "ART": {
+      "emoji_format": "<:ART:1433879682658598993>",
+      "emoji_id": "1433879682658598993"
+    },
+    "Invicta": {
+      "emoji_format": "<:invicta:1433879713750716446>",
+      "emoji_id": "1433879713750716446"
+    },
+    "Rodin Motorsport": {
+      "emoji_format": "<:rodinmotorsport:1433879807866699957>",
+      "emoji_id": "1433879807866699957"
+    },
+    "Campos": {
+      "emoji_format": "<:Campos:1433879693253283890>",
+      "emoji_id": "1433879693253283890"
+    },
+    "DK27 Racing": {
+      "emoji_format": "<:dk27racing:1540699450710958121>",
+      "emoji_id": "1540699450710958121"
+    },
+    "DAMS": {
+      "emoji_format": "<:Dams:1433879676463480922>",
+      "emoji_id": "1433879676463480922"
+    },
+    "MP Motorsport": {
+      "emoji_format": "<:MPmotorsport:1433888285763043520>",
+      "emoji_id": "1433888285763043520"
+    },
+    "Prema": {
+      "emoji_format": "<:Prema:1433879697103654933>",
+      "emoji_id": "1433879697103654933"
+    },
+    "VAR": {
+      "emoji_format": "<:VAR:1433888001250820296>",
+      "emoji_id": "1433888001250820296"
+    },
+    "Trident": {
+      "emoji_format": "<:Trident:1433876389240639518>",
+      "emoji_id": "1433876389240639518"
+    },
+    "Rodin Motorsport": {
+      "emoji_format": "<:rodinmotorsport:1433879807866699957>",
+      "emoji_id": "1433879807866699957"
+    }
+  },
+
+  "series_emojis": {
+    "F1": {
+      "emoji_format": "<:f1:1487470069268222175>",
+      "emoji_id": "1487470069268222175"
+    },
+    "F2": {
+      "emoji_format": "<:f2:1493669245958099036>",
+      "emoji_id": "1493669245958099036"
+    }
+  },
+
+  "tyre_emojis": {
+    "soft": {
+      "emoji_format": "<:soft:1487470481262248116>",
+      "emoji_id": "1487470481262248116"
+    },
+    "medium": {
+      "emoji_format": "<:medium:1487470434826846412>",
+      "emoji_id": "1487470434826846412"
+    },
+    "hard": {
+      "emoji_format": "<:hard:1487470539235786843>",
+      "emoji_id": "1487470539235786843"
+    },
+    "intermediate": {
+      "emoji_format": "<:Intermediate:1487470344997568785>",
+      "emoji_id": "1487470344997568785"
+    },
+    "wet": {
+      "emoji_format": "<:wet:1487470385858482298>",
+      "emoji_id": "1487470385858482298"
+    }
+  },
+
+  "user_teams": {
+    "comment": "Map user license keys to their team assignments. Updated by admin /profile edit_team command. Teams auto-fetched during /submit."
+  }
+}

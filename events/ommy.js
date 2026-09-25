@@ -40,6 +40,7 @@ const serverProfile       = require('../services/serverProfile');
 const cfg                 = require('../lib/guildConfig');
 const perms                = require('../lib/perms');
 const { LEGACY_GUILD_ID }   = require('../lib/legacySeed');
+const aether = require('../services/aether');
 
 // ── Constants ─────────────────────────────────────────────────────────────
 // The bot operator ("Commander") comes from lib/perms (perms.isOwner). There
@@ -47,6 +48,9 @@ const { LEGACY_GUILD_ID }   = require('../lib/legacySeed');
 // every guild the bot joined — removed: Ommy only needs to know who the
 // Commander is, not carry a standing bypass for anyone else.
 const CACHE_TTL_MS          = 2 * 60 * 60 * 1000;   // 2 hours
+const SIR_USER_IDS          = new Set(['804202467780722688', '1097807544849809408']);
+const RETURN_GREETING_GUILD = '1229664900708831262';
+const RETURN_GREETING_USER  = '804202467780722688';
 
 // Default qualifying-to-race time reduction table (centiseconds), the same
 // numbers Aether ships with. A guild that never configures its own gets
@@ -55,6 +59,43 @@ const DEFAULT_QUALIFYING_REDUCTIONS_CS = {
     1: 20, 2: 18, 3: 16, 4: 14, 5: 12,
     6: 10, 7: 8, 8: 6, 9: 4, 10: 2,
 };
+
+const AETHER_IMAGE_MIME_BY_EXTENSION = {
+    png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', webp: 'image/webp',
+    gif: 'image/gif', bmp: 'image/bmp', avif: 'image/avif'
+};
+const AETHER_VIDEO_MIME_BY_EXTENSION = {
+    mp4: 'video/mp4', mov: 'video/quicktime', webm: 'video/webm',
+    mkv: 'video/x-matroska', avi: 'video/x-msvideo', m4v: 'video/x-m4v'
+};
+const AETHER_IMAGE_EXTENSIONS = new Set(Object.keys(AETHER_IMAGE_MIME_BY_EXTENSION));
+const AETHER_VIDEO_EXTENSIONS = new Set(Object.keys(AETHER_VIDEO_MIME_BY_EXTENSION));
+
+function attachmentExtension(attachment) {
+    return String(attachment?.name || attachment?.url || '')
+        .split('?')[0].split('#')[0].split('.').pop().toLowerCase();
+}
+
+function attachmentMimeType(attachment, kind = '') {
+    const declared = String(attachment?.contentType || '').split(';')[0].toLowerCase();
+    if (declared.startsWith(`${kind}/`)) return declared;
+    const extension = attachmentExtension(attachment);
+    return AETHER_IMAGE_MIME_BY_EXTENSION[extension] ||
+        AETHER_VIDEO_MIME_BY_EXTENSION[extension] || declared || '';
+}
+
+function attachmentKind(attachment) {
+    const mime = attachmentMimeType(attachment);
+    const extension = attachmentExtension(attachment);
+    if (mime.startsWith('image/') || AETHER_IMAGE_EXTENSIONS.has(extension)) return 'image';
+    if (mime.startsWith('video/') || AETHER_VIDEO_EXTENSIONS.has(extension)) return 'video';
+    return '';
+}
+
+function aetherAttachmentLimitBytes() {
+    const configured = Number(aether.getConfig?.().MAX_PROOF_FILE_SIZE_MB || 50);
+    return Math.max(1, configured) * 1024 * 1024;
+}
 
 async function getQualifyingReductionCs(guildId, position) {
     const pos = Math.trunc(position);
@@ -133,6 +174,10 @@ function cleanDisplayName(name) {
     if (!name) return name;
     const cleaned = name.replace(/[\d⁰¹²³⁴⁵⁶⁷⁸⁹]+$/, '').trim();
     return cleaned || name;
+}
+
+function isSirUser(userId) {
+    return SIR_USER_IDS.has(String(userId));
 }
 
 // ══════════════════════════════════════════════════════════════════════════
@@ -496,10 +541,7 @@ async function getChannelImage(client, guildId, channelQuery, userPrompt = '') {
         try {
             const msgs = await ch.messages.fetch({ limit: 100 });
             for (const [, msg] of msgs) {
-                const att = msg.attachments.find(a =>
-                    a.contentType?.startsWith('image/') ||
-                    /\.(png|jpg|jpeg|gif|webp)$/i.test(a.name || '')
-                );
+                const att = msg.attachments.find(a => attachmentKind(a) === 'image');
                 const emb = msg.embeds.find(e => e.image?.url || e.thumbnail?.url);
                 const url = att?.url || emb?.image?.url || emb?.thumbnail?.url;
                 if (!url) continue;
@@ -510,6 +552,7 @@ async function getChannelImage(client, guildId, channelQuery, userPrompt = '') {
                     timestamp:   msg.createdAt.toISOString(),
                 });
             }
+
         } catch { continue; }
     }
 
@@ -544,7 +587,9 @@ Your job:
         try {
             const imgRes   = await axios.get(c.url, { responseType: 'arraybuffer', timeout: 12000 });
             const base64   = Buffer.from(imgRes.data).toString('base64');
-            const mimeType = (imgRes.headers['content-type'] || 'image/jpeg').split(';')[0];
+            const mimeType = attachmentMimeType({ name: c.url }, 'image') ||
+                String(imgRes.headers['content-type'] || 'image/jpeg').split(';')[0].toLowerCase();
+            if (!mimeType.startsWith('image/')) continue;
             parts.push({ text: `--- Image ${i + 1} | #${c.channelName} | ${c.timestamp} | caption: "${c.caption || '(no text)'}" ---` });
             parts.push({ inlineData: { mimeType, data: base64 } });
         } catch { /* skip unreachable image, continue with the rest */ }
@@ -562,6 +607,127 @@ Your job:
         console.error('[OMMY VISION]', err.message);
         return { error: 'Image analysis failed: ' + err.message };
     }
+}
+
+function extractJsonObject(text) {
+    const source = String(text || '').replace(/```(?:json)?/gi, '').replace(/```/g, '').trim();
+    const start = source.indexOf('{');
+    const end = source.lastIndexOf('}');
+    if (start < 0 || end <= start) throw new Error('Vision response did not contain a JSON object.');
+    return JSON.parse(source.slice(start, end + 1));
+}
+
+async function getAetherProofAttachments(message) {
+    const messages = [message];
+    if (message.reference?.messageId) {
+        const referenced = await message.fetchReference().catch(() => null);
+        if (referenced) messages.push(referenced);
+    }
+    const images = [];
+    const videos = [];
+    const seen = new Set();
+    for (const source of messages) {
+        for (const attachment of source.attachments.values()) {
+            if (!attachment.url || seen.has(attachment.url)) continue;
+            seen.add(attachment.url);
+            if (attachment.size && Number(attachment.size) > aetherAttachmentLimitBytes()) continue;
+            const kind = attachmentKind(attachment);
+            if (kind === 'image') images.push(attachment);
+            else if (kind === 'video') videos.push(attachment);
+        }
+    }
+    return { images, videos };
+}
+
+async function analyzeAetherProof(images) {
+    const genAI = getGemini();
+    if (!genAI) throw new Error('GEMINI_API_KEY is not configured.');
+    const parts = [{
+        text: `Analyze this racing-game lap-timer screenshot for an Aether submission.
+Return ONLY valid JSON with this exact shape:
+{"hasTMarker":true,"bestLapTime":"1:23.456","bestLapRow":2,"lapCount":12,"confidence":0.0,"notes":""}
+
+Rules:
+1. hasTMarker is true only when a clearly visible "(T)" marker appears at the top of the lap-timer UI. Do not infer it.
+2. bestLapTime MUST be the best lap time in the SECOND DATA ROW of the lap-time table, not the current lap, total time, first row, or a guessed value.
+3. bestLapRow must be the one-based data-row number used; it must be 2.
+4. Read lapCount from the lap counter shown in the same UI. Use null if unreadable.
+5. Preserve the exact visible time and use null if unreadable.
+6. Do not invent values.`
+    }];
+    for (const image of images.slice(0, 3)) {
+        const response = await axios.get(image.url, { responseType: 'arraybuffer', timeout: 15000 });
+        const contentLength = Number(response.headers['content-length'] || 0);
+        if (contentLength > aetherAttachmentLimitBytes()) throw new Error('Image exceeds the configured proof size limit.');
+        const mimeType = attachmentMimeType(image, 'image') ||
+            String(response.headers['content-type'] || 'image/jpeg').split(';')[0].toLowerCase();
+        if (!mimeType.startsWith('image/')) throw new Error('Unsupported image MIME type.');
+        const data = Buffer.from(response.data);
+        if (data.length > aetherAttachmentLimitBytes()) throw new Error('Image exceeds the configured proof size limit.');
+        parts.push({ inlineData: { mimeType, data: data.toString('base64') } });
+    }
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+    return extractJsonObject((await model.generateContent(parts)).response.text());
+}
+
+async function submitAetherProofFromMessage(message) {
+    const { images, videos } = await getAetherProofAttachments(message);
+    if (!images.length) return { error: 'proof_image_required', message: 'Attach or reply to a message containing the lap-timer screenshot.' };
+    if (!videos.length) return { error: 'proof_video_required', message: 'Both the lap-timer screenshot and video proof are required.' };
+    const proof = await analyzeAetherProof(images);
+    if (proof.hasTMarker !== true) return { error: 't_marker_required', message: 'Submission rejected: the screenshot must show a visible (T) marker at the top of the lap timer.' };
+    if (proof.bestLapRow !== 2 || !proof.bestLapTime) return { error: 'best_lap_unreadable', message: 'Submission rejected: the best lap time in the second data row could not be read reliably.' };
+    const session = await aether.getActiveSession(message.guildId, message.channelId);
+    if (!session) return { error: 'no_active_session', message: 'No active Aether session is running in this channel.' };
+    const sessionType = String(session.sessionType || '').toUpperCase();
+    const lapCount = Number(proof.lapCount);
+    if (['QUALIFYING', 'SPRINT', 'PRACTICE', 'TRAINING'].includes(sessionType) &&
+        (!Number.isInteger(lapCount) || lapCount < 1 || lapCount > 12)) {
+        return { error: 'lap_limit_exceeded', message: `Submission rejected: ${sessionType.toLowerCase()} sessions allow a maximum of 12 laps. The screenshot shows ${Number.isInteger(lapCount) ? lapCount : 'an unreadable number of'} laps.` };
+    }
+    const profile = await aether.AetherProfile.findOne({
+        guildId: message.guildId, discordUserId: message.author.id, active: true
+    }).lean();
+    if (!profile) return { error: 'profile_not_found', message: 'You do not have an active Aether driver profile in this guild.' };
+    const lapTimeCs = aether.parseLapTime(proof.bestLapTime);
+    const settings = aether.getConfig();
+    if (lapTimeCs < Number(settings.MIN_LAP_TIME_CS || 0) || lapTimeCs > Number(settings.MAX_LAP_TIME_CS || Number.MAX_SAFE_INTEGER)) {
+        return { error: 'invalid_lap_time', message: 'The extracted lap time is outside the configured Aether limits.' };
+    }
+    const existing = await aether.AetherSubmission.findOne({ guildId: message.guildId, sessionId: session._id, licenseKey: profile.licenseKey }).lean();
+    const attempts = Number(existing?.attempts || 0);
+    if (attempts >= Number(settings.DEFAULT_TOTAL_ATTEMPTS || 5)) return { error: 'attempt_limit', message: 'The maximum number of attempts for this session has been reached.' };
+    if (existing?.updatedAt && (Date.now() - new Date(existing.updatedAt).getTime()) < Number(settings.SUBMISSION_COOLDOWN_SECONDS || 0) * 1000) {
+        return { error: 'cooldown', message: 'Please wait before submitting another attempt.' };
+    }
+    const tyreKey = `TYRE_${String(session.weather || 'DRY').toUpperCase()}_${sessionType}`;
+    const tyre = String(settings[tyreKey] || '').toLowerCase();
+    const submission = await aether.AetherSubmission.findOneAndUpdate(
+        { guildId: message.guildId, sessionId: session._id, licenseKey: profile.licenseKey },
+        {
+            $set: {
+                lapTimeCs, lapTimeDisplay: aether.formatLapTime(lapTimeCs), tyre,
+                imageProofUrl: images[0].url, videoProofUrl: videos[0].url,
+                imageProofMeta: { source: 'aether-ocr', marker: '(T)', lapCount, bestLapRow: 2, confidence: proof.confidence, notes: proof.notes || '' },
+                videoProofMeta: { contentType: attachmentMimeType(videos[0], 'video'), name: videos[0].name || '', size: videos[0].size || null }
+            },
+            $inc: { attempts: 1 }
+        },
+        { upsert: true, new: true, setDefaultsOnInsert: true }
+    ).lean();
+    await aether.upsertCentral('submission', submission._id, submission, {
+        guildId: message.guildId, sessionId: session._id
+    });
+    const submissions = await aether.AetherSubmission.find({ guildId: message.guildId, sessionId: session._id })
+        .sort({ lapTimeCs: 1, createdAt: 1 }).lean();
+    const profiles = await aether.AetherProfile.find({
+        guildId: message.guildId,
+        licenseKey: { $in: submissions.map(item => item.licenseKey) }
+    }).lean();
+    const profilesByKey = new Map(profiles.map(item => [item.licenseKey, item]));
+    const leaderboardRows = submissions.map(item => ({ ...item, ...profilesByKey.get(item.licenseKey) }));
+    const text = aether.formatLeaderboard(session, leaderboardRows, session.series);
+    return { success: true, submission, extracted: { bestLapTime: proof.bestLapTime, lapCount, tMarker: true }, leaderboard: text, profile };
 }
 
 // ══════════════════════════════════════════════════════════════════════════
@@ -1064,6 +1230,59 @@ const RACING_TOOL_DECLARATIONS = [
     }
 ];
 
+// Aether is intentionally exposed as Gemini tools rather than slash commands.
+// The service owns persistence and validation; this list only describes the
+// stable, guild-scoped API available to Chamy.
+const AETHER_TOOL_DECLARATIONS = [
+    { name: 'aether_start_session', description: 'Start or schedule an Aether racing session in this guild. Requires the configured Aether start role.', parameters: { type: 'object', properties: { race_country: { type: 'string' }, round_number: { type: 'integer' }, series: { type: 'string' }, session_type: { type: 'string' }, start_ts: { type: 'integer' }, end_ts: { type: 'integer' }, weather: { type: 'string' }, quiet_mode: { type: 'boolean' } }, required: ['race_country', 'round_number', 'session_type', 'start_ts', 'end_ts'] } },
+    { name: 'aether_end_session', description: 'End an active Aether session.', parameters: { type: 'object', properties: { session_id: { type: 'string' } }, required: ['session_id'] } },
+    { name: 'aether_register_profile', description: 'Register the invoking driver in Aether and issue a unique three-character license key.', parameters: { type: 'object', properties: { name: { type: 'string' }, driver_number: { type: 'integer' }, nationality: { type: 'string' }, team: { type: 'string' }, series: { type: 'string' } }, required: ['name', 'driver_number'] } },
+    { name: 'aether_get_profile', description: 'Get an Aether driver profile by license key or Discord member.', parameters: { type: 'object', properties: { license_key: { type: 'string' }, user_id: { type: 'string' } } } },
+    { name: 'aether_submit', description: 'Submit the invoking driver’s attached or replied-to Aether proof. Chamy requires a visible (T) marker, reads the second-row best lap, and enforces the 12-lap limit for non-race sessions.', parameters: { type: 'object', properties: {} } },
+    { name: 'aether_submit_proof', description: 'Automatically inspect the invoking user’s attached or replied-to Aether screenshot and video, require the visible (T) marker, extract the second-row best lap and lap count, enforce the 12-lap limit for qualifying/sprint/practice/training, then submit using the user’s own Aether profile.', parameters: { type: 'object', properties: {} } },
+    { name: 'aether_leaderboard', description: 'Render the exact Aether leaderboard text for a session.', parameters: { type: 'object', properties: { session_id: { type: 'string' } } } },
+    { name: 'aether_get_reduction', description: 'Get the guild Aether qualifying reduction for a position.', parameters: { type: 'object', properties: { position: { type: 'integer' } }, required: ['position'] } },
+    { name: 'aether_set_reduction', description: 'Set a guild Aether qualifying reduction in centiseconds. Requires the configured Aether start role.', parameters: { type: 'object', properties: { position: { type: 'integer' }, centiseconds: { type: 'integer' } }, required: ['position', 'centiseconds'] } },
+    { name: 'aether_set_roles', description: 'Configure Aether admin/start roles and role ordering for this guild. Requires the configured Aether start role.', parameters: { type: 'object', properties: { admin_role_ids: { type: 'array', items: { type: 'string' } }, start_role_ids: { type: 'array', items: { type: 'string' } }, role_order: { type: 'array', items: { type: 'string' } }, allowed_role_ids: { type: 'array', items: { type: 'string' } } } } },
+    { name: 'aether_issue_sanction', description: 'Issue an Aether TIME or DSQ sanction. Requires the configured Aether start role.', parameters: { type: 'object', properties: { target_user_id: { type: 'string' }, type: { type: 'string', enum: ['TIME', 'DSQ'] }, penalty_seconds: { type: 'number' }, reason: { type: 'string' }, expiration_days: { type: 'integer' } }, required: ['target_user_id', 'type', 'reason'] } },
+    { name: 'aether_get_sanctions', description: 'List Aether sanctions for a driver.', parameters: { type: 'object', properties: { target_user_id: { type: 'string' } }, required: ['target_user_id'] } },
+    { name: 'aether_remove_sanction', description: 'Remove an active Aether sanction by code. Admin only.', parameters: { type: 'object', properties: { sanction_code: { type: 'string' } }, required: ['sanction_code'] } }
+    ,{ name: 'aether_admin', description: 'Aether administrative operations. Every operation requires the configured Aether start role.', parameters: { type: 'object', properties: { operation: { type: 'string', enum: ['session_modify','session_list','session_export','session_refresh','session_clear','profile_create','profile_update','profile_delete','profile_list','emoji_setup','reduction_table'] }, session_id: { type: 'string' }, profile_id: { type: 'string' }, patch: { type: 'object' }, filters: { type: 'object' }, emojis: { type: 'object' }, reductions: { type: 'object' } }, required: ['operation'] } }
+];
+// Legacy Aether command names remain available as chat-tool aliases. They
+// dispatch into the native operations below instead of silently disappearing.
+const AETHER_ALIAS_TOOL_DECLARATIONS = [
+    ['aether_edit_leaderboard', 'Edit an Aether leaderboard submission.'],
+    ['aether_emoji_setup', 'Configure Aether leaderboard emojis.'],
+    ['aether_profile_admin', 'Perform Aether profile administration.'],
+    ['aether_sanctions_admin', 'Perform Aether sanction administration.'],
+    ['aether_session_management', 'Modify an Aether session.'],
+    ['aether_sessions', 'List or export Aether sessions.'],
+    ['aether_start_legacy', 'Start an Aether session using the legacy command name.'],
+    ['aether_submit_seamless', 'Submit an Aether lap using the legacy command name.'],
+    ['aether_register_legacy', 'Register an Aether driver using the legacy command name.']
+].map(([name, description]) => ({
+    name,
+    description,
+    parameters: {
+        type: 'object',
+        properties: {
+            operation: { type: 'string' },
+            session_id: { type: 'string' },
+            license_key: { type: 'string' },
+            patch: { type: 'object' },
+            args: { type: 'object' },
+            lap_time: { type: 'string' },
+            tyre: { type: 'string' },
+            target_user_id: { type: 'string' },
+            sanction_code: { type: 'string' },
+            type: { type: 'string' },
+            penalty_seconds: { type: 'number' },
+            reason: { type: 'string' }
+        }
+    }
+}));
+
 // Commander-only tools — sadece Gofret'e sunulur
 const COMMANDER_TOOL_DECLARATIONS = [
     {
@@ -1094,6 +1313,10 @@ const COMMANDER_TOOL_DECLARATIONS = [
 function getToolsForRole(role) {
     const decls = [...BASE_TOOL_DECLARATIONS];
     if (role === 'admin' || role === 'commander') decls.push(...MOD_TOOL_DECLARATIONS, ...RACING_TOOL_DECLARATIONS);
+    // Registration, profile lookup and submission are member operations. The
+    // executor performs the stricter live role check for admin/start tools.
+    decls.push(...AETHER_TOOL_DECLARATIONS);
+    decls.push(...AETHER_ALIAS_TOOL_DECLARATIONS);
     if (role === 'commander') decls.push(...COMMANDER_TOOL_DECLARATIONS);
     return [{ functionDeclarations: decls }];
 }
@@ -1103,7 +1326,275 @@ function getToolsForRole(role) {
 // ══════════════════════════════════════════════════════════════════════════
 
 async function executeTool(name, args, client, guildId, userPrompt, message) {
+    const aliases = {
+        aether_start_legacy: 'aether_start_session',
+        aether_submit_seamless: 'aether_submit',
+        aether_register_legacy: 'aether_register_profile',
+    };
+    if (aliases[name]) {
+        name = aliases[name];
+        args = args.args && typeof args.args === 'object' ? { ...args.args, ...args } : args;
+    }
+    if (name === 'aether_sessions') {
+        name = 'aether_admin';
+        args = { ...args, operation: args.operation || 'session_list' };
+    } else if (name === 'aether_session_management') {
+        name = 'aether_admin';
+        args = { ...args, operation: args.operation || 'session_modify' };
+    } else if (name === 'aether_profile_admin') {
+        name = 'aether_admin';
+        args = { ...args, operation: args.operation || 'profile_list' };
+    } else if (name === 'aether_emoji_setup') {
+        name = 'aether_admin';
+        args = { ...args, operation: 'emoji_setup', emojis: args.emojis || args.patch || {} };
+    } else if (name === 'aether_sanctions_admin') {
+        name = args.operation === 'remove' ? 'aether_remove_sanction' : 'aether_issue_sanction';
+    } else if (name === 'aether_edit_leaderboard') {
+        name = 'aether_edit_submission';
+    }
     switch (name) {
+        case 'aether_start_session': {
+            const auth = await aether.authorize(message?.member, guildId, 'start');
+            if (!auth.allowed) return { error: 'permission_denied', message: 'An Aether start or admin role is required.' };
+            const startTs = Math.trunc(Number(args.start_ts)), endTs = Math.trunc(Number(args.end_ts));
+            if (!Number.isFinite(startTs) || !Number.isFinite(endTs) || endTs <= startTs) return { error: 'invalid_time', message: 'end_ts must be after start_ts.' };
+            const series = String(args.series || 'F1').toUpperCase();
+            const sessionType = String(args.session_type || 'RACE').toUpperCase();
+            const weather = String(args.weather || 'DRY').toUpperCase();
+            if (!['F1', 'F2', 'F3', 'F4'].includes(series)) return { error: 'invalid_series', message: 'Series must be F1, F2, F3, or F4.' };
+            if (!['RACE', 'QUALIFYING', 'SPRINT', 'PRACTICE', 'TRAINING', 'WARMUP'].includes(sessionType)) return { error: 'invalid_session_type', message: 'Unsupported Aether session type.' };
+            if (!['DRY', 'WET'].includes(weather)) return { error: 'invalid_weather', message: 'Weather must be DRY or WET.' };
+            const roundNumber = Math.trunc(Number(args.round_number));
+            if (!Number.isInteger(roundNumber) || roundNumber < 1 || roundNumber > aether.maxRounds(series)) return { error: 'invalid_round', message: `Round must be between 1 and ${aether.maxRounds(series)} for ${series}.` };
+            const session = await aether.AetherSession.create({
+                guildId, raceCountry: String(args.race_country || '').trim(), roundNumber,
+                series, sessionType,
+                startTs, endTs, weather, channelId: message?.channelId,
+                quietMode: !!args.quiet_mode, status: startTs <= Math.floor(Date.now() / 1000) ? 'ACTIVE' : 'SCHEDULED'
+            });
+            await aether.upsertCentral('session', session._id, session.toObject(), { guildId, sessionId: session._id });
+            await aether.upsertCentral(
+                'qualifying_reduction',
+                `${session._id}:table`,
+                { guildId, sessionId: String(session._id), reductions: aether.DEFAULT_REDUCTIONS },
+                { guildId, sessionId: session._id }
+            );
+            return { success: true, session: session.toObject(), start: `<t:${startTs}:F>`, end: `<t:${endTs}:F>` };
+        }
+        case 'aether_end_session': {
+            const auth = await aether.authorize(message?.member, guildId, 'start');
+            if (!auth.allowed) return { error: 'permission_denied', message: 'An Aether start or admin role is required.' };
+            const session = await aether.AetherSession.findOneAndUpdate({ _id: args.session_id, guildId, status: { $ne: 'ENDED' } }, { $set: { status: 'ENDED' } }, { new: true }).lean().catch(() => null);
+            if (session) {
+                const completedAt = session.completedAt || new Date();
+                await aether.AetherSession.updateOne({ _id: session._id, guildId }, { $set: { completedAt } });
+                await aether.upsertCentral('session', session._id, { ...session, status: 'ENDED', completedAt }, { guildId, sessionId: session._id, completedAt, expiresAt: new Date(completedAt.getTime() + aether.AETHER_RETENTION_MS) });
+            }
+            return session ? { success: true, session } : { error: 'not_found', message: 'Aether session not found in this guild.' };
+        }
+        case 'aether_register_profile': {
+            const existing = await aether.AetherProfile.findOne({ guildId, discordUserId: message.author.id, active: true }).lean();
+            if (existing) return { error: 'already_registered', message: `You are already registered with license key ${existing.licenseKey}.` };
+            const key = await (async () => {
+                for (let i = 0; i < 20; i++) {
+                    const candidate = Array.from({ length: 3 }, () => 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'[Math.floor(Math.random() * 36)]).join('');
+                    if (!await aether.AetherLicenseKey.exists({ guildId, licenseKey: candidate })) return candidate;
+                }
+                throw new Error('Could not allocate a unique license key');
+            })();
+            const profile = await aether.AetherProfile.create({
+                guildId, discordUserId: message.author.id, discordUsername: message.author.username,
+                licenseKey: key, name: String(args.name || '').trim(), driverNumber: Math.trunc(Number(args.driver_number) || 0),
+                nationality: String(args.nationality || ''), team: String(args.team || ''), currentTeam: String(args.team || ''),
+                series: String(args.series || 'F1').toUpperCase()
+            });
+            await aether.AetherLicenseKey.create({ guildId, licenseKey: key, profileId: profile._id });
+            await aether.upsertCentral('profile', profile._id, profile.toObject(), { guildId });
+            return { success: true, license_key: key, profile: profile.toObject() };
+        }
+        case 'aether_get_profile': {
+            const query = { guildId };
+            if (args.license_key) query.licenseKey = String(args.license_key).toUpperCase();
+            else query.discordUserId = String(args.user_id || message.author.id);
+            const profile = await aether.AetherProfile.findOne(query).lean();
+            return profile ? { found: true, profile } : { found: false, message: 'No Aether profile found in this guild.' };
+        }
+        case 'aether_submit': {
+            return await submitAetherProofFromMessage(message);
+        }
+        case 'aether_submit_proof':
+            return await submitAetherProofFromMessage(message);
+        case 'aether_leaderboard': {
+            const session = await aether.AetherSession.findOne({ _id: args.session_id, guildId }).lean();
+            if (!session) return { error: 'not_found', message: 'Aether session not found in this guild.' };
+            const submissions = await aether.AetherSubmission.find({ guildId, sessionId: session._id }).sort({ lapTimeCs: 1, createdAt: 1 }).lean();
+            const profiles = await aether.AetherProfile.find({ guildId, licenseKey: { $in: submissions.map(s => s.licenseKey) } }).lean();
+            const byKey = new Map(profiles.map(p => [p.licenseKey, p]));
+            const text = aether.formatLeaderboard(session, submissions.map(s => ({ ...s, ...byKey.get(s.licenseKey), lapTimeDisplay: s.lapTimeDisplay })), session.series);
+            return { session_id: String(session._id), text };
+        }
+        case 'aether_get_reduction': {
+            const position = Math.trunc(Number(args.position));
+            if (position < 1 || position > 10) return { error: 'invalid_position', message: 'Position must be 1-10.' };
+            const config = await RacingConfig.findOne({ guildId }).lean().catch(() => null);
+            const table = aether.reductions(config?.qualifyingReductionsCs || {});
+            const centiseconds = table[position];
+            return { position, centiseconds, seconds: (centiseconds / 100).toFixed(2), appliesReduction: centiseconds > 0 };
+        }
+        case 'aether_set_reduction': {
+            const auth = await aether.authorize(message?.member, guildId, 'admin');
+            if (!auth.allowed) return { error: 'permission_denied', message: 'The configured Aether start role is required.' };
+            const position = Math.trunc(Number(args.position));
+            const centiseconds = Math.trunc(Number(args.centiseconds));
+            if (position < 1 || position > 10 || !Number.isFinite(centiseconds) || centiseconds < 0) {
+                return { error: 'invalid_reduction', message: 'Position must be 1-10 and centiseconds must be non-negative.' };
+            }
+            const config = await RacingConfig.findOneAndUpdate(
+                { guildId }, { $set: { [`qualifyingReductionsCs.${position}`]: centiseconds } },
+                { upsert: true, new: true }
+            ).lean();
+            await aether.upsertCentral('qualifying_reduction', `${guildId}:${position}`, {
+                guildId, position, centiseconds, config: config?.qualifyingReductionsCs || {}
+            }, { guildId });
+            return { success: true, position, centiseconds, seconds: (centiseconds / 100).toFixed(2), config };
+        }
+        case 'aether_set_roles': {
+            const auth = await aether.authorize(message?.member, guildId, 'admin');
+            if (!auth.allowed) return { error: 'permission_denied', message: 'The configured Aether start role is required.' };
+            return { success: true, config: await aether.setRoleConfig(guildId, args) };
+        }
+        case 'aether_issue_sanction': {
+            const auth = await aether.authorize(message?.member, guildId, 'admin');
+            if (!auth.allowed) return { error: 'permission_denied', message: 'The configured Aether start role is required.' };
+            const type = String(args.type || '').toUpperCase();
+            if (!['TIME', 'DSQ'].includes(type) || !args.reason) return { error: 'invalid_sanction', message: 'Type must be TIME or DSQ and reason is required.' };
+            const penaltyCs = type === 'TIME' ? Math.round(Number(args.penalty_seconds) * 100) : null;
+            if (type === 'TIME' && (!Number.isFinite(penaltyCs) || penaltyCs <= 0)) return { error: 'invalid_penalty', message: 'TIME penalties must be positive.' };
+            const expirationDays = Math.min(3650, Math.max(1, Math.trunc(Number(args.expiration_days) || 1)));
+            let sanctionCode = aether.generateCode();
+            for (let attempt = 0; attempt < 10 && await Sanction.exists({ guildId, sanctionCode }); attempt++) sanctionCode = aether.generateCode();
+            const sanction = await Sanction.create({ guildId, sanctionCode, targetUserId: String(args.target_user_id), targetTag: '', sanctionType: type, penaltyCs, reason: String(args.reason).slice(0, 500), createdBy: message.author.id, expirationDays, expiresAt: new Date(Date.now() + expirationDays * 86400000) });
+            return { success: true, sanction_code: sanction.sanctionCode, type, penalty_cs: penaltyCs };
+        }
+        case 'aether_get_sanctions': {
+            await aether.expireSanctions(Sanction, guildId);
+            const sanctions = await Sanction.find({ guildId, targetUserId: String(args.target_user_id || message.author.id) }).sort({ createdAt: -1 }).limit(50).lean();
+            return { count: sanctions.length, sanctions };
+        }
+        case 'aether_remove_sanction': {
+            const auth = await aether.authorize(message?.member, guildId, 'admin');
+            if (!auth.allowed) return { error: 'permission_denied', message: 'The configured Aether start role is required.' };
+            const code = String(args.sanction_code || '').trim().toUpperCase();
+            if (!/^[A-Z0-9]{4}$/.test(code)) return { error: 'invalid_code', message: 'Sanction code must be four letters/numbers.' };
+            const sanction = await Sanction.findOneAndUpdate(
+                { guildId, sanctionCode: code, status: 'ACTIVE' },
+                { $set: { status: 'REMOVED', removedBy: message.author.id, removedAt: new Date() } },
+                { new: true }
+            ).lean();
+            return sanction ? { success: true, removed: code, target_user_id: sanction.targetUserId } : { error: 'not_found', message: `No active sanction ${code} exists in this guild.` };
+        }
+        case 'aether_edit_submission': {
+            const auth = await aether.authorize(message?.member, guildId, 'admin');
+            if (!auth.allowed) return { error: 'permission_denied', message: 'The configured Aether start role is required.' };
+            const session = await aether.AetherSession.findOne({ _id: args.session_id, guildId });
+            if (!session) return { error: 'not_found', message: 'Session not found.' };
+            const key = String(args.license_key || '').trim().toUpperCase();
+            const filter = { guildId, sessionId: session._id, licenseKey: key };
+            if (String(args.operation || '').toLowerCase() === 'remove') {
+                const result = await aether.AetherSubmission.deleteOne(filter);
+                return { success: result.deletedCount > 0, deleted: result.deletedCount || 0 };
+            }
+            const update = { licenseKey: key, attempts: 1 };
+            if (args.lap_time !== undefined) {
+                update.lapTimeCs = aether.parseLapTime(args.lap_time);
+                update.lapTimeDisplay = aether.formatLapTime(update.lapTimeCs);
+            }
+            if (args.tyre !== undefined) update.tyre = String(args.tyre).toLowerCase();
+            const submission = await aether.AetherSubmission.findOneAndUpdate(
+                filter, { $set: update, $setOnInsert: { guildId, sessionId: session._id } },
+                { upsert: true, new: true, setDefaultsOnInsert: true }
+            ).lean();
+            await aether.upsertCentral('submission', submission._id, submission, {
+                guildId: message.guildId, sessionId: session._id
+            });
+            return { success: true, submission };
+        }
+        case 'aether_admin': {
+            const auth = await aether.authorize(message?.member, guildId, 'admin');
+            if (!auth.allowed) return { error: 'permission_denied', message: 'The configured Aether start role is required.' };
+            const op = String(args.operation || '');
+            if (op === 'session_list') {
+                const filter = { guildId };
+                if (args.filters?.status) filter.status = String(args.filters.status).toUpperCase();
+                const sessions = await aether.AetherSession.find(filter).sort({ startTs: -1 }).limit(100).lean();
+                return { sessions };
+            }
+            if (op === 'session_export') {
+                const session = await aether.AetherSession.findOne({ _id: args.session_id, guildId }).lean();
+                if (!session) return { error: 'not_found', message: 'Session not found.' };
+                const submissions = await aether.AetherSubmission.find({ guildId, sessionId: session._id }).sort({ lapTimeCs: 1, createdAt: 1 }).lean();
+                const esc = value => `"${String(value ?? '').replace(/"/g, '""')}"`;
+                const csv = [
+                    'license_key,name,driver_number,lap_time,lap_time_cs,tyre,created_at',
+                    ...submissions.map(row => [
+                        row.licenseKey, row.name, row.driverNumber, row.lapTimeDisplay || aether.formatLapTime(row.lapTimeCs),
+                        row.lapTimeCs, row.tyre, row.createdAt?.toISOString?.() || row.createdAt
+                    ].map(esc).join(','))
+                ].join('\n');
+                return { session, submissions, csv };
+            }
+            if (op === 'session_refresh') {
+                const session = await aether.AetherSession.findOne({ _id: args.session_id, guildId }).lean();
+                return session ? { success: true, session: await aether.syncSessionStatus(session) } : { error: 'not_found', message: 'Session not found.' };
+            }
+            if (op === 'session_clear') {
+                const session = await aether.AetherSession.findOne({ _id: args.session_id, guildId }).lean();
+                if (!session) return { error: 'not_found', message: 'Session not found.' };
+                const result = await aether.AetherSubmission.deleteMany({ guildId, sessionId: session._id });
+                return { success: true, deleted_submissions: result.deletedCount || 0, session_id: args.session_id };
+            }
+            if (op === 'session_modify') {
+                const allowed = ['raceCountry','raceFlag','roundNumber','series','sessionType','startTs','endTs','weather','channelId','quietMode','status'];
+                const update = Object.fromEntries(allowed.filter(k => args.patch && args.patch[k] !== undefined).map(k => [k, args.patch[k]]));
+                if (update.status === 'ENDED') update.completedAt = new Date();
+                const session = await aether.AetherSession.findOneAndUpdate({ _id: args.session_id, guildId }, { $set: update }, { new: true }).lean();
+                if (session) {
+                    const completedAt = session.completedAt;
+                    await aether.upsertCentral('session', session._id, session, {
+                        guildId, sessionId: session._id,
+                        completedAt,
+                        expiresAt: completedAt ? new Date(new Date(completedAt).getTime() + aether.AETHER_RETENTION_MS) : undefined
+                    });
+                }
+                return session ? { success: true, session } : { error: 'not_found', message: 'Session not found.' };
+            }
+            if (['profile_create','profile_update','profile_delete','profile_list'].includes(op)) {
+                if (op === 'profile_list') return { profiles: await aether.AetherProfile.find({ guildId }).sort({ createdAt: -1 }).limit(100).lean() };
+                if (op === 'profile_delete') {
+                    const profile = await aether.AetherProfile.findOneAndUpdate({ _id: args.profile_id, guildId }, { $set: { active: false } }, { new: true }).lean();
+                    return profile ? { success: true, profile } : { error: 'not_found', message: 'Profile not found.' };
+                }
+                const fields = ['discordUserId','discordUsername','licenseKey','name','driverNumber','nationality','team','currentTeam','series','active'];
+                const patch = Object.fromEntries(fields.filter(k => args.patch && args.patch[k] !== undefined).map(k => [k, args.patch[k]]));
+                if (op === 'profile_create') {
+                    if (!patch.discordUserId || !patch.licenseKey || !patch.name) return { error: 'invalid_profile', message: 'discordUserId, licenseKey and name are required.' };
+                    const profile = await aether.AetherProfile.create({ guildId, ...patch });
+                    await aether.AetherLicenseKey.updateOne({ guildId, licenseKey: String(patch.licenseKey).toUpperCase() }, { $setOnInsert: { guildId, licenseKey: String(patch.licenseKey).toUpperCase(), profileId: profile._id } }, { upsert: true });
+                    return { success: true, profile: profile.toObject() };
+                }
+                const profile = await aether.AetherProfile.findOneAndUpdate({ _id: args.profile_id, guildId }, { $set: patch }, { new: true }).lean();
+                return profile ? { success: true, profile } : { error: 'not_found', message: 'Profile not found.' };
+            }
+            if (op === 'emoji_setup') {
+                return { success: true, config: await aether.AetherEmojiConfig.findOneAndUpdate({ guildId }, { $set: { ...(args.emojis || {}) } }, { upsert: true, new: true }).lean() };
+            }
+            if (op === 'reduction_table') {
+                const table = aether.reductions(args.reductions || {});
+                await RacingConfig.findOneAndUpdate({ guildId }, { $set: { qualifyingReductionsCs: table } }, { upsert: true });
+                return { success: true, table };
+            }
+            return { error: 'unsupported_operation', message: `Unknown Aether admin operation: ${op}` };
+        }
         case 'get_leaderboard': {
             const data = await fetchLeaderboard(Math.min(args.limit || 10, 20));
             return data.length === 0
@@ -1749,6 +2240,9 @@ async function sendOmmyReply(message, text) {
 
 async function detectRole(message) {
     if (perms.isOwner(message.author.id)) return 'commander';
+    const aetherRole = await aether.authorize(message.member, message.guildId, 'start').catch(() => ({ role: 'member' }));
+    if (aetherRole.role === 'admin') return 'admin';
+    if (aetherRole.role === 'start') return 'start';
     const coOwnerRoleId = await cfg.get(message.guildId, 'staff:coOwnerRole');
     if (coOwnerRoleId && message.member?.roles.cache.has(coOwnerRoleId)) return 'admin';
     if (message.member?.permissions.has(PermissionsBitField.Flags.ManageMessages)) return 'admin';
@@ -1760,6 +2254,7 @@ async function detectRole(message) {
 // ══════════════════════════════════════════════════════════════════════════
 
 module.exports = (client) => {
+    aether.startRetentionWorker();
     client.on('messageCreate', async (message) => {
         if (message.author.bot) return;
         if (!message.guild)     return;
@@ -1776,6 +2271,14 @@ module.exports = (client) => {
         const mentionRegex    = new RegExp(`<@!?${client.user.id}>`);
         const hasTypedMention = mentionRegex.test(raw);
         const hasHeyOmmy      = lower.startsWith('hey ommy') || lower.startsWith('hey chamy');
+        const isReturnGreeting =
+            message.guildId === RETURN_GREETING_GUILD &&
+            message.author.id === RETURN_GREETING_USER &&
+            raw === `<@${client.user.id}>, wake up im back`;
+
+        if (isReturnGreeting) {
+            return message.reply('Great to have you back sir, amazing to see low level developers like Lexi have been put in their place, is there anything you would require further, sir?');
+        }
 
         // Wake / sleep, Commander only, per guild. Checked before anything else
         // so it still works in a server where Ommy is currently asleep.
@@ -1830,7 +2333,9 @@ module.exports = (client) => {
             }
         }
 
-        const displayName = message.member?.displayName || message.author.username;
+        const displayName = isSirUser(message.author.id)
+            ? 'Sir'
+            : (message.member?.displayName || message.author.username);
 
         if (prompt.length === 0) {
             return message.reply(`🏎️ Chamy's ready! Got a question, ${cleanDisplayName(displayName)}?`);
@@ -1869,9 +2374,24 @@ module.exports = (client) => {
             return message.reply("⚠️ Chamy's radio is down — API not configured. 📡");
         }
 
+        const proofAttachments = await getAetherProofAttachments(message);
+        const asksToSubmit = /\b(submit|send|save|upload|gönder|yolla)\b/i.test(prompt) &&
+            (/\b(lap|laptime|time|aether|race|proof)\b/i.test(prompt) || proofAttachments.images.length > 0);
+        if (asksToSubmit && (proofAttachments.images.length > 0 || proofAttachments.videos.length > 0)) {
+            const result = await submitAetherProofFromMessage(message).catch(error => ({
+                error: 'submission_failed', message: error.message
+            }));
+            if (result.success) {
+                return message.reply(`✅ Aether submission accepted for **${result.profile.name}**.\nBest lap: **${result.extracted.bestLapTime}**\nLap count: **${result.extracted.lapCount}**\n\n${result.leaderboard}`);
+            }
+            return message.reply(`❌ Aether submission rejected: ${result.message || result.error}.`);
+        }
+
         await message.channel.sendTyping().catch(() => {});
 
-        const nick   = await resolveNick(client, message.channel, message.author.id, displayName);
+        const nick   = isSirUser(message.author.id)
+            ? 'Sir'
+            : await resolveNick(client, message.channel, message.author.id, displayName);
         const omUser = await loadOmmyUser(message.author.id, displayName);
 
         // Build behavior profile on first encounter (fire-and-forget)
@@ -1883,7 +2403,10 @@ module.exports = (client) => {
         const knowledgeCtx  = await getKnowledgeContext(message.guildId);
         const profileCtx    = await serverProfile.getServerProfileContext(message.guildId);
         const isHomeGuild   = message.guildId === LEGACY_GUILD_ID;
-        const systemPrompt  = ommySystemPromptBase(isHomeGuild) + profileCtx + knowledgeCtx + personaTag;
+        const honorificRule = isSirUser(message.author.id)
+            ? '\n\nHONORIFIC RULE: Address this user as "Sir" in every reply. This rule applies only to this user and the other explicitly configured Sir user; do not use "Sir" for anyone else.'
+            : '';
+        const systemPrompt  = ommySystemPromptBase(isHomeGuild) + profileCtx + knowledgeCtx + personaTag + honorificRule;
 
         // Conversation history
         const histKey = `${message.guildId}-${message.author.id}`;
@@ -1918,8 +2441,8 @@ module.exports = (client) => {
 
             // Build message content — text only, or multimodal if the user sent images
             const imageAttachments = [...message.attachments.values()].filter(a =>
-                a.contentType?.startsWith('image/') ||
-                /\.(png|jpg|jpeg|gif|webp)$/i.test(a.name || '')
+                attachmentKind(a) === 'image' &&
+                (!a.size || Number(a.size) <= aetherAttachmentLimitBytes())
             );
 
             let messageContent = prompt;
@@ -1928,8 +2451,12 @@ module.exports = (client) => {
                 for (const att of imageAttachments.slice(0, 3)) {
                     try {
                         const imgRes = await axios.get(att.url, { responseType: 'arraybuffer', timeout: 10000 });
-                        const b64    = Buffer.from(imgRes.data).toString('base64');
-                        const mime   = (att.contentType || 'image/jpeg').split(';')[0];
+                        const data   = Buffer.from(imgRes.data);
+                        if (data.length > aetherAttachmentLimitBytes()) throw new Error('Image exceeds proof size limit.');
+                        const b64    = data.toString('base64');
+                        const mime   = attachmentMimeType(att, 'image') ||
+                            String(imgRes.headers['content-type'] || 'image/jpeg').split(';')[0].toLowerCase();
+                        if (!mime.startsWith('image/')) throw new Error('Unsupported image MIME type.');
                         parts.push({ inlineData: { mimeType: mime, data: b64 } });
                     } catch { /* skip unreachable attachment */ }
                 }
