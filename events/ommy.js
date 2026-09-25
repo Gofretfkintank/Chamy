@@ -69,6 +69,17 @@ const AETHER_VIDEO_MIME_BY_EXTENSION = {
 const AETHER_IMAGE_EXTENSIONS = new Set(Object.keys(AETHER_IMAGE_MIME_BY_EXTENSION));
 const AETHER_VIDEO_EXTENSIONS = new Set(Object.keys(AETHER_VIDEO_MIME_BY_EXTENSION));
 
+function currentTimeContext() {
+    const now = new Date();
+    const ist = new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'Asia/Kolkata',
+        dateStyle: 'full',
+        timeStyle: 'long',
+        hour12: false
+    }).format(now);
+    return `Current server time: ${now.toISOString()} (UTC). Current India time: ${ist} (Asia/Kolkata, IST).`;
+}
+
 function attachmentExtension(attachment) {
     return String(attachment?.name || attachment?.url || '')
         .split('?')[0].split('#')[0].split('.').pop().toLowerCase();
@@ -1231,7 +1242,7 @@ const RACING_TOOL_DECLARATIONS = [
 // The service owns persistence and validation; this list only describes the
 // stable, guild-scoped API available to Chamy.
 const AETHER_TOOL_DECLARATIONS = [
-    { name: 'aether_start_session', description: 'Start or schedule an Aether racing session in this guild. Requires the configured Aether admin or start role. Use current Unix timestamps; stale timestamps are rejected.', parameters: { type: 'object', properties: { race_country: { type: 'string' }, race_flag: { type: 'string' }, round_number: { type: 'integer' }, series: { type: 'string' }, session_type: { type: 'string' }, start_ts: { type: 'integer' }, end_ts: { type: 'integer' }, weather: { type: 'string' }, quiet_mode: { type: 'boolean' } }, required: ['race_country', 'round_number', 'session_type', 'start_ts', 'end_ts'] } },
+    { name: 'aether_start_session', description: 'Start or schedule an Aether racing session in this guild. Requires the configured Aether admin or start role. Resolve local requests such as "today at 22:00 IST" against the current runtime clock, then provide current Unix timestamps; stale timestamps are rejected.', parameters: { type: 'object', properties: { race_country: { type: 'string' }, race_flag: { type: 'string' }, round_number: { type: 'integer' }, series: { type: 'string' }, session_type: { type: 'string' }, start_ts: { type: 'integer' }, end_ts: { type: 'integer' }, timezone: { type: 'string', description: 'IANA timezone used to interpret a natural-language local time, e.g. Asia/Kolkata' }, weather: { type: 'string' }, quiet_mode: { type: 'boolean' } }, required: ['race_country', 'round_number', 'session_type', 'start_ts', 'end_ts'] } },
     { name: 'aether_end_session', description: 'End an active Aether session.', parameters: { type: 'object', properties: { session_id: { type: 'string' } }, required: ['session_id'] } },
     { name: 'aether_register_profile', description: 'Register the invoking driver in Aether and issue a unique three-character license key.', parameters: { type: 'object', properties: { name: { type: 'string' }, driver_number: { type: 'integer' }, nationality: { type: 'string' }, team: { type: 'string' }, series: { type: 'string' } }, required: ['name', 'driver_number'] } },
     { name: 'aether_get_profile', description: 'Get an Aether driver profile by license key or Discord member.', parameters: { type: 'object', properties: { license_key: { type: 'string' }, user_id: { type: 'string' } } } },
@@ -1358,6 +1369,7 @@ async function executeTool(name, args, client, guildId, userPrompt, message) {
             const now = Math.floor(Date.now() / 1000);
             if (!Number.isFinite(startTs) || !Number.isFinite(endTs) || endTs <= startTs) return { error: 'invalid_time', message: 'end_ts must be after start_ts.' };
             if (endTs <= now) return { error: 'invalid_time', message: `The session end time must be in the future. Current Unix time is ${now}; regenerate the Discord timestamps for the requested date.` };
+            if (startTs < now - 12 * 60 * 60) return { error: 'stale_start_time', message: `start_ts is stale and appears to come from a previous date or year. ${currentTimeContext()} Recalculate the requested local time before retrying.` };
             const series = String(args.series || 'F1').toUpperCase();
             const sessionType = String(args.session_type || 'RACE').toUpperCase();
             const weather = String(args.weather || 'DRY').toUpperCase();
@@ -2424,7 +2436,12 @@ module.exports = (client) => {
         const knowledgeCtx  = await getKnowledgeContext(message.guildId);
         const profileCtx    = await serverProfile.getServerProfileContext(message.guildId);
         const isHomeGuild   = message.guildId === LEGACY_GUILD_ID;
-        const systemPrompt  = ommySystemPromptBase(isHomeGuild) + profileCtx + knowledgeCtx + personaTag;
+        const systemPrompt  = `${ommySystemPromptBase(isHomeGuild)}
+
+RUNTIME CLOCK (authoritative for scheduling):
+${currentTimeContext()}
+When a user gives a local time without a date, use today's date in the stated timezone if that time is still upcoming; otherwise use the next occurrence and say so. Never reuse Unix timestamps from examples, previous messages, or old conversation history. For IST, use Asia/Kolkata and the current date above.
+${profileCtx}${knowledgeCtx}${personaTag}`;
 
         // Conversation history
         const histKey = `${message.guildId}-${message.author.id}`;
@@ -2463,9 +2480,9 @@ module.exports = (client) => {
                 (!a.size || Number(a.size) <= aetherAttachmentLimitBytes())
             );
 
-            let messageContent = prompt;
+            let messageContent = `${currentTimeContext()}\n\nUser request:\n${prompt}`;
             if (imageAttachments.length > 0) {
-                const parts = [{ text: prompt || 'What do you see in this image?' }];
+                const parts = [{ text: `${currentTimeContext()}\n\nUser request:\n${prompt || 'What do you see in this image?'}` }];
                 for (const att of imageAttachments.slice(0, 3)) {
                     try {
                         const imgRes = await axios.get(att.url, { responseType: 'arraybuffer', timeout: 10000 });
@@ -2567,7 +2584,7 @@ module.exports = (client) => {
                         generationConfig:  { temperature: 0.8, maxOutputTokens: 2048 },
                     });
                     const fbChat     = fbModel.startChat({ history: toGeminiHistory(safeHistory) });
-                    let   fbResponse = (await fbChat.sendMessage(prompt)).response;
+                    let   fbResponse = (await fbChat.sendMessage(`${currentTimeContext()}\n\nUser request:\n${prompt}`)).response;
 
                     // One round of tool calls on fallback
                     const fbCalls = fbResponse.functionCalls?.() || [];
