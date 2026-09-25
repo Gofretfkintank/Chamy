@@ -74,6 +74,7 @@ async function main() {
             discordUsername: p.discord_username || '', licenseKey: String(p.license_key).toUpperCase(),
             name: p.name, driverNumber: p.driver_number, nationality: p.nationality || '',
             team: p.team || '', currentTeam: p.current_team || '', series: p.series || 'F1',
+            active: true,
             createdAt: dateFromUnix(p.created_at), updatedAt: dateFromUnix(p.updated_at)
         });
         profileByKey.set(String(p.license_key).toUpperCase(), doc);

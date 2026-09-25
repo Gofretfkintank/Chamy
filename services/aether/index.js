@@ -164,6 +164,11 @@ function startRetentionWorker() {
 function normalizeIds(value) {
     return [...new Set((Array.isArray(value) ? value : String(value || '').split(',')).map(String).map(s => s.trim()).filter(Boolean))];
 }
+async function findProfileForUser(guildId, userId, options = {}) {
+    const filter = { guildId: String(guildId), discordUserId: String(userId) };
+    if (options.activeOnly) filter.active = { $ne: false };
+    return AetherProfile.findOne(filter).sort({ active: -1, updatedAt: -1, createdAt: -1 }).lean();
+}
 function roleIds(member) {
     return new Set(member?.roles?.cache ? [...member.roles.cache.keys()].map(String) : (member?.roles || []).map(r => String(r.id || r)));
 }
@@ -346,5 +351,6 @@ module.exports = {
     DEFAULT_REDUCTIONS, getRoleConfig, setRoleConfig, authorize, resolveRole, roleIds, roleRank,
     syncSessionStatus, getActiveSession, expireSanctions,
     upsertCentral, cleanupExpiredData, startRetentionWorker, AETHER_RETENTION_MS,
-    parseLapTime, formatLapTime, validateLapTime, formatLeaderboard, generateCode, reductions, invalidateGuildCaches
+    parseLapTime, formatLapTime, validateLapTime, formatLeaderboard, generateCode, reductions, invalidateGuildCaches,
+    findProfileForUser
 };

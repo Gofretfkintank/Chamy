@@ -690,10 +690,13 @@ async function submitAetherProofFromMessage(message) {
         (!Number.isInteger(lapCount) || lapCount < 1 || lapCount > 12)) {
         return { error: 'lap_limit_exceeded', message: `Submission rejected: ${sessionType.toLowerCase()} sessions allow a maximum of 12 laps. The screenshot shows ${Number.isInteger(lapCount) ? lapCount : 'an unreadable number of'} laps.` };
     }
-    const profile = await aether.AetherProfile.findOne({
-        guildId: message.guildId, discordUserId: message.author.id, active: true
-    }).lean();
-    if (!profile) return { error: 'profile_not_found', message: 'You do not have an active Aether driver profile in this guild.' };
+    const profile = await aether.findProfileForUser(message.guildId, message.author.id, { activeOnly: true });
+    if (!profile) {
+        const configured = await aether.findProfileForUser(message.guildId, message.author.id);
+        return configured
+            ? { error: 'profile_inactive', message: 'Your Aether driver profile exists in this guild but is inactive. Ask an Aether admin to reactivate it.' }
+            : { error: 'profile_not_found', message: `No Aether profile is registered for your Discord ID in this guild (${message.guildId}).` };
+    }
     let lapTimeCs;
     try {
         lapTimeCs = aether.validateLapTime(aether.parseLapTime(proof.bestLapTime), aether.getConfig());
