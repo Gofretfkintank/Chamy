@@ -14,7 +14,42 @@ require('dotenv').config();
 const mongoose = require('mongoose');
 const fs = require('fs');
 const path = require('path');
+const os = require('os');
+const zlib = require('zlib');
+const { spawnSync } = require('child_process');
 const http = require('http'); // Added for Passive Monitoring (Heartbeat)
+
+//--------------------------
+// ONE-SHOT AETHER MIGRATION
+//--------------------------
+
+function runPendingAetherMigration() {
+    const payload = process.env.AETHER_MIGRATION_DB_GZIP_BASE64;
+    if (!payload) return;
+
+    const guildId = String(process.env.AETHER_MIGRATION_GUILD_ID || '').trim();
+    if (!guildId) throw new Error('AETHER_MIGRATION_GUILD_ID is required when migration data is configured.');
+
+    const sqlitePath = path.join(os.tmpdir(), 'chamy-aether-migration.db');
+    try {
+        const sqlite = zlib.gunzipSync(Buffer.from(payload, 'base64'));
+        fs.writeFileSync(sqlitePath, sqlite, { mode: 0o600 });
+        console.log(`[AETHER MIGRATION] Starting one-shot import for guild ${guildId}.`);
+
+        const result = spawnSync(process.execPath, [
+            path.join(__dirname, 'services', 'aether', 'migrate.js'),
+            '--apply', '--sqlite', sqlitePath, '--guild-id', guildId
+        ], { env: process.env, stdio: 'inherit' });
+
+        if (result.error) throw result.error;
+        if (result.status !== 0) throw new Error(`Aether migration exited with status ${result.status}.`);
+        console.log('[AETHER MIGRATION] One-shot import completed.');
+    } finally {
+        fs.rmSync(sqlitePath, { force: true });
+    }
+}
+
+runPendingAetherMigration();
 
 //--------------------------
 // MONGO CONNECT
