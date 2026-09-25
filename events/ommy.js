@@ -41,6 +41,7 @@ const cfg                 = require('../lib/guildConfig');
 const perms                = require('../lib/perms');
 const { LEGACY_GUILD_ID }   = require('../lib/legacySeed');
 const aether = require('../services/aether');
+const { startAetherScheduler, updateLeaderboardMessage } = require('../services/aether/scheduler');
 
 // ── Constants ─────────────────────────────────────────────────────────────
 // The bot operator ("Commander") comes from lib/perms (perms.isOwner). There
@@ -720,6 +721,9 @@ async function submitAetherProofFromMessage(message) {
     const profilesByKey = new Map(profiles.map(item => [item.licenseKey, item]));
     const leaderboardRows = submissions.map(item => ({ ...item, ...profilesByKey.get(item.licenseKey) }));
     const text = aether.formatLeaderboard(session, leaderboardRows, session.series);
+    await updateLeaderboardMessage(message.client, aether, session, text).catch(error => {
+        console.error('[AETHER LEADERBOARD UPDATE]', error.message);
+    });
     return { success: true, submission, extracted: { bestLapTime: proof.bestLapTime, lapCount, tMarker: true }, leaderboard: text, profile };
 }
 
@@ -1227,7 +1231,7 @@ const RACING_TOOL_DECLARATIONS = [
 // The service owns persistence and validation; this list only describes the
 // stable, guild-scoped API available to Chamy.
 const AETHER_TOOL_DECLARATIONS = [
-    { name: 'aether_start_session', description: 'Start or schedule an Aether racing session in this guild. Requires the configured Aether admin or start role.', parameters: { type: 'object', properties: { race_country: { type: 'string' }, round_number: { type: 'integer' }, series: { type: 'string' }, session_type: { type: 'string' }, start_ts: { type: 'integer' }, end_ts: { type: 'integer' }, weather: { type: 'string' }, quiet_mode: { type: 'boolean' } }, required: ['race_country', 'round_number', 'session_type', 'start_ts', 'end_ts'] } },
+    { name: 'aether_start_session', description: 'Start or schedule an Aether racing session in this guild. Requires the configured Aether admin or start role. Use current Unix timestamps; stale timestamps are rejected.', parameters: { type: 'object', properties: { race_country: { type: 'string' }, race_flag: { type: 'string' }, round_number: { type: 'integer' }, series: { type: 'string' }, session_type: { type: 'string' }, start_ts: { type: 'integer' }, end_ts: { type: 'integer' }, weather: { type: 'string' }, quiet_mode: { type: 'boolean' } }, required: ['race_country', 'round_number', 'session_type', 'start_ts', 'end_ts'] } },
     { name: 'aether_end_session', description: 'End an active Aether session.', parameters: { type: 'object', properties: { session_id: { type: 'string' } }, required: ['session_id'] } },
     { name: 'aether_register_profile', description: 'Register the invoking driver in Aether and issue a unique three-character license key.', parameters: { type: 'object', properties: { name: { type: 'string' }, driver_number: { type: 'integer' }, nationality: { type: 'string' }, team: { type: 'string' }, series: { type: 'string' } }, required: ['name', 'driver_number'] } },
     { name: 'aether_get_profile', description: 'Get an Aether driver profile by license key or Discord member.', parameters: { type: 'object', properties: { license_key: { type: 'string' }, user_id: { type: 'string' } } } },
@@ -1351,7 +1355,9 @@ async function executeTool(name, args, client, guildId, userPrompt, message) {
             const auth = await aether.authorize(message?.member, guildId, 'start');
             if (!auth.allowed) return { error: 'permission_denied', message: 'The configured Aether admin or start role is required.' };
             const startTs = Math.trunc(Number(args.start_ts)), endTs = Math.trunc(Number(args.end_ts));
+            const now = Math.floor(Date.now() / 1000);
             if (!Number.isFinite(startTs) || !Number.isFinite(endTs) || endTs <= startTs) return { error: 'invalid_time', message: 'end_ts must be after start_ts.' };
+            if (endTs <= now) return { error: 'invalid_time', message: `The session end time must be in the future. Current Unix time is ${now}; regenerate the Discord timestamps for the requested date.` };
             const series = String(args.series || 'F1').toUpperCase();
             const sessionType = String(args.session_type || 'RACE').toUpperCase();
             const weather = String(args.weather || 'DRY').toUpperCase();
@@ -1361,7 +1367,7 @@ async function executeTool(name, args, client, guildId, userPrompt, message) {
             const roundNumber = Math.trunc(Number(args.round_number));
             if (!Number.isInteger(roundNumber) || roundNumber < 1 || roundNumber > aether.maxRounds(series)) return { error: 'invalid_round', message: `Round must be between 1 and ${aether.maxRounds(series)} for ${series}.` };
             const session = await aether.AetherSession.create({
-                guildId, raceCountry: String(args.race_country || '').trim(), roundNumber,
+                guildId, raceCountry: String(args.race_country || '').trim(), raceFlag: String(args.race_flag || '').trim(), roundNumber,
                 series, sessionType,
                 startTs, endTs, weather, channelId: message?.channelId,
                 quietMode: !!args.quiet_mode, status: startTs <= Math.floor(Date.now() / 1000) ? 'ACTIVE' : 'SCHEDULED'
@@ -2203,6 +2209,17 @@ RACING TOOLS (get_qualifying_reduction, set_qualifying_reduction, list_qualifyin
 - If the target driver is ambiguous, ask which one instead of guessing, same as moderation tools.
 - Relay the returned sanction_code back to the user — it's how the penalty gets looked up or removed later.
 
+AETHER SESSION TOOLS:
+- For aether_start_session, use Unix seconds for the date the user explicitly
+  requested. Resolve "today", "tomorrow", and calendar dates against the
+  current date, never against an example or stale timestamp from prior chat.
+- Before calling the tool, verify end_ts is in the future and start_ts is
+  before end_ts. If a timestamp is stale, recalculate it instead of retrying
+  the same value.
+- After aether_start_session succeeds, report the returned Discord timestamps
+  exactly. The scheduler activates the session and posts the announcement at
+  start_ts; do not claim it started immediately when it is scheduled.
+
 ${isHomeGuild ? `OM LEAGUE KNOWLEDGE (no tool needed):
 - Registration: For joining the league or a championship season, refer the user to the SERVER KNOWLEDGE BASE section above or use the scan_channel_messages tool to check the relevant channel — do NOT just say "/register" unless the knowledge base explicitly confirms that's the correct step.
 - The /register slash command is for creating a driver stats profile — it is NOT necessarily the same as applying for a championship season.
@@ -2270,6 +2287,7 @@ async function detectRole(message) {
 
 module.exports = (client) => {
     aether.startRetentionWorker();
+    startAetherScheduler(client, aether);
     client.on('messageCreate', async (message) => {
         if (message.author.bot) return;
         if (!message.guild)     return;

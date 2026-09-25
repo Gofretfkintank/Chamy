@@ -42,7 +42,7 @@ const AetherSession = mongoose.models.AetherSession || mongoose.model('AetherSes
     guildId: { type: String, required: true, index: true }, roundNumber: Number,
     raceCountry: String, raceFlag: { type: String, default: '' }, series: { type: String, default: 'F1' },
     sessionType: { type: String, default: 'RACE' }, startTs: Number, endTs: Number,
-    completedAt: Date,
+    completedAt: Date, announcementSentAt: Date, announcementMessageId: String, leaderboardMessageId: String,
     weather: { type: String, default: 'DRY' }, channelId: String, status: { type: String, default: 'SCHEDULED' },
     quietMode: { type: Boolean, default: false }
 }));

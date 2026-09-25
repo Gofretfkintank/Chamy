@@ -82,6 +82,18 @@ idempotent: source integer IDs are stored as `legacyId` and writes use
 deleted. SQLite proof paths are retained as legacy metadata; new submissions
 use Discord URLs and proof metadata.
 
+## Session scheduling
+
+Chamy runs a restart-safe scheduler from `services/aether/scheduler.js`. It
+polls pending sessions, activates them at `startTs`, posts the Aether-format
+announcement in the session channel, and marks the announcement as sent in
+MongoDB. It also closes active sessions after `endTs`. The scheduler resumes
+pending sessions after a process restart and honors `quietMode`.
+
+Session tools require `end_ts` to be in the future. Discord timestamps must be
+generated for the intended current/future date; stale timestamps are rejected
+instead of creating a session that immediately becomes inactive.
+
 The SQLite profile tables do not contain a guild ID, so `--guild-id` is
 mandatory. Legacy `penalties` are retained in `AetherLegacyPenalty` and are
 also represented as completed Chamy sanctions with `LEGxxxxx` codes.
