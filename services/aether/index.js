@@ -217,9 +217,9 @@ async function authorize(member, guildId, kind = 'member') {
     const admin = role === 'admin';
     const start = role === 'start';
     const allowed = kind === 'admin'
-        ? start
+        ? admin
         : kind === 'start'
-            ? start
+            ? admin || start
             : kind === 'league'
                 ? hasAllowedRole(member, c.allowedRoleIds)
                 : true;

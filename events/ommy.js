@@ -1227,7 +1227,7 @@ const RACING_TOOL_DECLARATIONS = [
 // The service owns persistence and validation; this list only describes the
 // stable, guild-scoped API available to Chamy.
 const AETHER_TOOL_DECLARATIONS = [
-    { name: 'aether_start_session', description: 'Start or schedule an Aether racing session in this guild. Requires the configured Aether start role.', parameters: { type: 'object', properties: { race_country: { type: 'string' }, round_number: { type: 'integer' }, series: { type: 'string' }, session_type: { type: 'string' }, start_ts: { type: 'integer' }, end_ts: { type: 'integer' }, weather: { type: 'string' }, quiet_mode: { type: 'boolean' } }, required: ['race_country', 'round_number', 'session_type', 'start_ts', 'end_ts'] } },
+    { name: 'aether_start_session', description: 'Start or schedule an Aether racing session in this guild. Requires the configured Aether admin or start role.', parameters: { type: 'object', properties: { race_country: { type: 'string' }, round_number: { type: 'integer' }, series: { type: 'string' }, session_type: { type: 'string' }, start_ts: { type: 'integer' }, end_ts: { type: 'integer' }, weather: { type: 'string' }, quiet_mode: { type: 'boolean' } }, required: ['race_country', 'round_number', 'session_type', 'start_ts', 'end_ts'] } },
     { name: 'aether_end_session', description: 'End an active Aether session.', parameters: { type: 'object', properties: { session_id: { type: 'string' } }, required: ['session_id'] } },
     { name: 'aether_register_profile', description: 'Register the invoking driver in Aether and issue a unique three-character license key.', parameters: { type: 'object', properties: { name: { type: 'string' }, driver_number: { type: 'integer' }, nationality: { type: 'string' }, team: { type: 'string' }, series: { type: 'string' } }, required: ['name', 'driver_number'] } },
     { name: 'aether_get_profile', description: 'Get an Aether driver profile by license key or Discord member.', parameters: { type: 'object', properties: { license_key: { type: 'string' }, user_id: { type: 'string' } } } },
@@ -1236,12 +1236,12 @@ const AETHER_TOOL_DECLARATIONS = [
     { name: 'aether_submit_proof', description: 'Automatically inspect the invoking user’s attached or replied-to Aether screenshot and video, require the visible (T) marker, extract the second-row best lap and lap count, enforce the 12-lap limit for qualifying/sprint/practice/training, then submit using the user’s own Aether profile.', parameters: { type: 'object', properties: {} } },
     { name: 'aether_leaderboard', description: 'Render the exact Aether leaderboard text for a session.', parameters: { type: 'object', properties: { session_id: { type: 'string' } } } },
     { name: 'aether_get_reduction', description: 'Get the guild Aether qualifying reduction for a position.', parameters: { type: 'object', properties: { position: { type: 'integer' } }, required: ['position'] } },
-    { name: 'aether_set_reduction', description: 'Set a guild Aether qualifying reduction in centiseconds. Requires the configured Aether start role.', parameters: { type: 'object', properties: { position: { type: 'integer' }, centiseconds: { type: 'integer' } }, required: ['position', 'centiseconds'] } },
-    { name: 'aether_set_roles', description: 'Configure Aether admin/start roles and role ordering for this guild. Requires the configured Aether start role.', parameters: { type: 'object', properties: { admin_role_ids: { type: 'array', items: { type: 'string' } }, start_role_ids: { type: 'array', items: { type: 'string' } }, role_order: { type: 'array', items: { type: 'string' } }, allowed_role_ids: { type: 'array', items: { type: 'string' } } } } },
-    { name: 'aether_issue_sanction', description: 'Issue an Aether TIME or DSQ sanction. Requires the configured Aether start role.', parameters: { type: 'object', properties: { target_user_id: { type: 'string' }, type: { type: 'string', enum: ['TIME', 'DSQ'] }, penalty_seconds: { type: 'number' }, reason: { type: 'string' }, expiration_days: { type: 'integer' } }, required: ['target_user_id', 'type', 'reason'] } },
+    { name: 'aether_set_reduction', description: 'Set a guild Aether qualifying reduction in centiseconds. Requires the configured Aether admin role.', parameters: { type: 'object', properties: { position: { type: 'integer' }, centiseconds: { type: 'integer' } }, required: ['position', 'centiseconds'] } },
+    { name: 'aether_set_roles', description: 'Configure Aether admin/start roles and role ordering for this guild. Requires the configured Aether admin role.', parameters: { type: 'object', properties: { admin_role_ids: { type: 'array', items: { type: 'string' } }, start_role_ids: { type: 'array', items: { type: 'string' } }, role_order: { type: 'array', items: { type: 'string' } }, allowed_role_ids: { type: 'array', items: { type: 'string' } } } } },
+    { name: 'aether_issue_sanction', description: 'Issue an Aether TIME or DSQ sanction. Requires the configured Aether admin role.', parameters: { type: 'object', properties: { target_user_id: { type: 'string' }, type: { type: 'string', enum: ['TIME', 'DSQ'] }, penalty_seconds: { type: 'number' }, reason: { type: 'string' }, expiration_days: { type: 'integer' } }, required: ['target_user_id', 'type', 'reason'] } },
     { name: 'aether_get_sanctions', description: 'List Aether sanctions for a driver.', parameters: { type: 'object', properties: { target_user_id: { type: 'string' } }, required: ['target_user_id'] } },
     { name: 'aether_remove_sanction', description: 'Remove an active Aether sanction by code. Admin only.', parameters: { type: 'object', properties: { sanction_code: { type: 'string' } }, required: ['sanction_code'] } }
-    ,    { name: 'aether_admin', description: 'Aether administration. Read-only profile_list is available to configured league roles such as F1; session, profile mutation, emoji, and reduction administration requires the configured Aether start role.', parameters: { type: 'object', properties: { operation: { type: 'string', enum: ['session_modify','session_list','session_export','session_refresh','session_clear','profile_create','profile_update','profile_delete','profile_list','emoji_setup','reduction_table'] }, session_id: { type: 'string' }, profile_id: { type: 'string' }, patch: { type: 'object' }, filters: { type: 'object' }, emojis: { type: 'object' }, reductions: { type: 'object' } }, required: ['operation'] } }
+    ,    { name: 'aether_admin', description: 'Aether administration. The configured Aether admin role is authoritative for profile creation, including creating profiles for other users with an explicitly supplied custom license key, plus all other privileged operations. Read-only profile_list is available to configured league roles such as F1.', parameters: { type: 'object', properties: { operation: { type: 'string', enum: ['session_modify','session_list','session_export','session_refresh','session_clear','profile_create','profile_update','profile_delete','profile_list','emoji_setup','reduction_table'] }, session_id: { type: 'string' }, profile_id: { type: 'string' }, patch: { type: 'object', description: 'For profile_create, include discordUserId, name, and the exact custom licenseKey to store. No license key is generated for admin-created profiles.' }, license_key: { type: 'string', description: 'Exact custom license key for profile_create; stored uppercase without generating a replacement.' }, filters: { type: 'object' }, emojis: { type: 'object' }, reductions: { type: 'object' } }, required: ['operation'] } }
 ];
 // Legacy Aether command names remain available as chat-tool aliases. They
 // dispatch into the native operations below instead of silently disappearing.
@@ -1349,7 +1349,7 @@ async function executeTool(name, args, client, guildId, userPrompt, message) {
     switch (name) {
         case 'aether_start_session': {
             const auth = await aether.authorize(message?.member, guildId, 'start');
-            if (!auth.allowed) return { error: 'permission_denied', message: 'An Aether start or admin role is required.' };
+            if (!auth.allowed) return { error: 'permission_denied', message: 'The configured Aether admin or start role is required.' };
             const startTs = Math.trunc(Number(args.start_ts)), endTs = Math.trunc(Number(args.end_ts));
             if (!Number.isFinite(startTs) || !Number.isFinite(endTs) || endTs <= startTs) return { error: 'invalid_time', message: 'end_ts must be after start_ts.' };
             const series = String(args.series || 'F1').toUpperCase();
@@ -1377,7 +1377,7 @@ async function executeTool(name, args, client, guildId, userPrompt, message) {
         }
         case 'aether_end_session': {
             const auth = await aether.authorize(message?.member, guildId, 'start');
-            if (!auth.allowed) return { error: 'permission_denied', message: 'An Aether start or admin role is required.' };
+            if (!auth.allowed) return { error: 'permission_denied', message: 'The configured Aether admin or start role is required.' };
             const session = await aether.AetherSession.findOneAndUpdate({ _id: args.session_id, guildId, status: { $ne: 'ENDED' } }, { $set: { status: 'ENDED' } }, { new: true }).lean().catch(() => null);
             if (session) {
                 const completedAt = session.completedAt || new Date();
@@ -1442,7 +1442,7 @@ async function executeTool(name, args, client, guildId, userPrompt, message) {
         }
         case 'aether_set_reduction': {
             const auth = await aether.authorize(message?.member, guildId, 'admin');
-            if (!auth.allowed) return { error: 'permission_denied', message: 'The configured Aether start role is required.' };
+            if (!auth.allowed) return { error: 'permission_denied', message: 'The configured Aether admin role is required.' };
             const position = Math.trunc(Number(args.position));
             const centiseconds = Math.trunc(Number(args.centiseconds));
             if (position < 1 || position > 10 || !Number.isFinite(centiseconds) || centiseconds < 0) {
@@ -1459,12 +1459,12 @@ async function executeTool(name, args, client, guildId, userPrompt, message) {
         }
         case 'aether_set_roles': {
             const auth = await aether.authorize(message?.member, guildId, 'admin');
-            if (!auth.allowed) return { error: 'permission_denied', message: 'The configured Aether start role is required.' };
+            if (!auth.allowed) return { error: 'permission_denied', message: 'The configured Aether admin role is required.' };
             return { success: true, config: await aether.setRoleConfig(guildId, args) };
         }
         case 'aether_issue_sanction': {
             const auth = await aether.authorize(message?.member, guildId, 'admin');
-            if (!auth.allowed) return { error: 'permission_denied', message: 'The configured Aether start role is required.' };
+            if (!auth.allowed) return { error: 'permission_denied', message: 'The configured Aether admin role is required.' };
             const type = String(args.type || '').toUpperCase();
             if (!['TIME', 'DSQ'].includes(type) || !args.reason) return { error: 'invalid_sanction', message: 'Type must be TIME or DSQ and reason is required.' };
             const penaltyCs = type === 'TIME' ? Math.round(Number(args.penalty_seconds) * 100) : null;
@@ -1482,7 +1482,7 @@ async function executeTool(name, args, client, guildId, userPrompt, message) {
         }
         case 'aether_remove_sanction': {
             const auth = await aether.authorize(message?.member, guildId, 'admin');
-            if (!auth.allowed) return { error: 'permission_denied', message: 'The configured Aether start role is required.' };
+            if (!auth.allowed) return { error: 'permission_denied', message: 'The configured Aether admin role is required.' };
             const code = String(args.sanction_code || '').trim().toUpperCase();
             if (!/^[A-Z0-9]{4}$/.test(code)) return { error: 'invalid_code', message: 'Sanction code must be four letters/numbers.' };
             const sanction = await Sanction.findOneAndUpdate(
@@ -1494,7 +1494,7 @@ async function executeTool(name, args, client, guildId, userPrompt, message) {
         }
         case 'aether_edit_submission': {
             const auth = await aether.authorize(message?.member, guildId, 'admin');
-            if (!auth.allowed) return { error: 'permission_denied', message: 'The configured Aether start role is required.' };
+            if (!auth.allowed) return { error: 'permission_denied', message: 'The configured Aether admin role is required.' };
             const session = await aether.AetherSession.findOne({ _id: args.session_id, guildId });
             if (!session) return { error: 'not_found', message: 'Session not found.' };
             const key = String(args.license_key || '').trim().toUpperCase();
@@ -1526,7 +1526,7 @@ async function executeTool(name, args, client, guildId, userPrompt, message) {
                     error: 'permission_denied',
                     message: op === 'profile_list'
                         ? 'A configured Aether league role, such as the F1 driver role, is required.'
-                        : 'The configured Aether start role is required.'
+                        : 'The configured Aether admin role is required.'
                 };
             }
             if (op === 'session_list') {
@@ -1583,9 +1583,16 @@ async function executeTool(name, args, client, guildId, userPrompt, message) {
                 const fields = ['discordUserId','discordUsername','licenseKey','name','driverNumber','nationality','team','currentTeam','series','active'];
                 const patch = Object.fromEntries(fields.filter(k => args.patch && args.patch[k] !== undefined).map(k => [k, args.patch[k]]));
                 if (op === 'profile_create') {
-                    if (!patch.discordUserId || !patch.licenseKey || !patch.name) return { error: 'invalid_profile', message: 'discordUserId, licenseKey and name are required.' };
+                    if (args.license_key !== undefined) patch.licenseKey = args.license_key;
+                    if (!patch.discordUserId || !patch.licenseKey || !patch.name) return { error: 'invalid_profile', message: 'discordUserId, custom license_key and name are required. A license key is never generated for admin-created profiles.' };
+                    patch.discordUserId = String(patch.discordUserId);
+                    patch.licenseKey = String(patch.licenseKey).trim().toUpperCase();
+                    if (!/^[A-Z0-9][A-Z0-9_-]{1,31}$/.test(patch.licenseKey)) return { error: 'invalid_license_key', message: 'Custom license keys must be 2-32 characters using letters, numbers, underscores, or hyphens.' };
+                    if (await aether.AetherProfile.exists({ guildId, $or: [{ discordUserId: patch.discordUserId }, { licenseKey: patch.licenseKey }] })) {
+                        return { error: 'duplicate_profile', message: 'That Discord user or custom license key is already registered in this guild.' };
+                    }
                     const profile = await aether.AetherProfile.create({ guildId, ...patch });
-                    await aether.AetherLicenseKey.updateOne({ guildId, licenseKey: String(patch.licenseKey).toUpperCase() }, { $setOnInsert: { guildId, licenseKey: String(patch.licenseKey).toUpperCase(), profileId: profile._id } }, { upsert: true });
+                    await aether.AetherLicenseKey.updateOne({ guildId, licenseKey: patch.licenseKey }, { $setOnInsert: { guildId, licenseKey: patch.licenseKey, profileId: profile._id } }, { upsert: true });
                     return { success: true, profile: profile.toObject() };
                 }
                 const profile = await aether.AetherProfile.findOneAndUpdate({ _id: args.profile_id, guildId }, { $set: patch }, { new: true }).lean();
