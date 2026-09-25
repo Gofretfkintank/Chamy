@@ -60,7 +60,7 @@ async function upsert(Model, legacyId, data) {
     return Model.findOneAndUpdate(
         { guildId, legacyId: Number(legacyId) },
         { $setOnInsert: data },
-        { upsert: true, new: true, setDefaultsOnInsert: true }
+        { upsert: true, new: true, setDefaultsOnInsert: true, timestamps: false }
     );
 }
 async function main() {
