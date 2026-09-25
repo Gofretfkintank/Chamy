@@ -190,11 +190,12 @@ async function getRoleConfig(guildId) {
     const settings = doc || {};
     const configuredAdmin = await cfg.getList(guildId, 'aether:adminRoles').catch(() => []);
     const configuredStart = await cfg.getList(guildId, 'aether:startRoles').catch(() => []);
+    const guildPrefix = `AETHER_GUILD_${String(guildId).replace(/[^0-9A-Za-z_]/g, '_')}_`;
     return {
-        adminRoleIds: normalizeIds(settings.adminRoleIds?.length ? settings.adminRoleIds : (configuredAdmin.length ? configuredAdmin : CONFIG.AETHER_ADMIN_ROLE_IDS)),
-        startRoleIds: normalizeIds(settings.startRoleIds?.length ? settings.startRoleIds : (configuredStart.length ? configuredStart : CONFIG.AETHER_START_ROLE_IDS)),
-        roleOrder: normalizeIds(settings.roleOrder || CONFIG.AETHER_ROLE_ORDER),
-        allowedRoleIds: normalizeIds(settings.allowedRoleIds || CONFIG.AETHER_ALLOWED_ROLE_IDS)
+        adminRoleIds: normalizeIds(settings.adminRoleIds?.length ? settings.adminRoleIds : (configuredAdmin.length ? configuredAdmin : CONFIG[`${guildPrefix}ADMIN_ROLE_IDS`] || CONFIG.AETHER_ADMIN_ROLE_IDS)),
+        startRoleIds: normalizeIds(settings.startRoleIds?.length ? settings.startRoleIds : (configuredStart.length ? configuredStart : CONFIG[`${guildPrefix}START_ROLE_IDS`] || CONFIG.AETHER_START_ROLE_IDS)),
+        roleOrder: normalizeIds(settings.roleOrder || CONFIG[`${guildPrefix}ROLE_ORDER`] || CONFIG.AETHER_ROLE_ORDER),
+        allowedRoleIds: normalizeIds(settings.allowedRoleIds || CONFIG[`${guildPrefix}ALLOWED_ROLE_IDS`] || CONFIG.AETHER_ALLOWED_ROLE_IDS)
     };
 }
 async function setRoleConfig(guildId, patch) {

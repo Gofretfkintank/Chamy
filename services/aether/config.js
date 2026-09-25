@@ -8,6 +8,9 @@ function parseValue(value) {
     const trimmed = String(value ?? '').trim();
     if (trimmed === '') return '';
     if (/^(true|false)$/i.test(trimmed)) return trimmed.toLowerCase() === 'true';
+    // Discord snowflakes exceed JavaScript's safe integer range. Keep long
+    // integer-looking values as strings so role/user/channel IDs are exact.
+    if (/^\d{16,}$/.test(trimmed)) return trimmed;
     if (/^-?\d+(?:\.\d+)?$/.test(trimmed)) return Number(trimmed);
     if (trimmed.includes(',')) return trimmed.split(',').map(item => item.trim()).filter(Boolean);
     return trimmed;
