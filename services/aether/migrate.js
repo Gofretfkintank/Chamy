@@ -33,11 +33,20 @@ db = sqlite3.connect(sys.argv[1]); db.row_factory = sqlite3.Row
 tables = {r[0] for r in db.execute("select name from sqlite_master where type='table'")}
 def rows(table):
     return [dict(r) for r in db.execute("select * from " + table)] if table in tables else []
-print(json.dumps({t: rows(t) for t in ("user_profiles","sessions","submissions","penalties","qualifying_results")}, default=str))
+data = {t: rows(t) for t in ("user_profiles","sessions","submissions","penalties","qualifying_results")}
+for profile in data["user_profiles"]:
+    if profile.get("discord_user_id") is not None:
+        profile["discord_user_id"] = str(profile["discord_user_id"])
+print(json.dumps(data, default=str))
 `;
 const read = spawnSync('python3', ['-c', py, sqlitePath], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
 if (read.status !== 0) throw new Error(read.stderr || 'Could not read SQLite database');
 const source = JSON.parse(read.stdout);
+for (const profile of source.user_profiles) {
+    if (typeof profile.discord_user_id !== 'string' || !/^\d+$/.test(profile.discord_user_id)) {
+        throw new Error(`Profile ${profile.id} has an invalid Discord ID; expected an exact decimal string.`);
+    }
+}
 const count = Object.fromEntries(Object.entries(source).map(([k, v]) => [k, v.length]));
 console.log(`[AETHER MIGRATION] source=${sqlitePath} guild=${guildId} dryRun=${dryRun}`, count);
 if (dryRun) {
@@ -69,14 +78,30 @@ async function main() {
     const sessionById = new Map();
     let imported = 0;
     for (const p of source.user_profiles) {
-        const doc = await upsert(AetherProfile, p.id, {
-            guildId, legacyId: p.id, discordUserId: String(p.discord_user_id),
+        const discordUserId = String(p.discord_user_id);
+        let doc = await upsert(AetherProfile, p.id, {
+            guildId, legacyId: p.id, discordUserId,
             discordUsername: p.discord_username || '', licenseKey: String(p.license_key).toUpperCase(),
             name: p.name, driverNumber: p.driver_number, nationality: p.nationality || '',
             team: p.team || '', currentTeam: p.current_team || '', series: p.series || 'F1',
             active: true,
             createdAt: dateFromUnix(p.created_at), updatedAt: dateFromUnix(p.updated_at)
         });
+        if (String(doc.discordUserId) !== discordUserId) {
+            const conflict = await AetherProfile.findOne({
+                guildId, discordUserId, _id: { $ne: doc._id }
+            }).select('_id').lean();
+            if (conflict) {
+                throw new Error(`Cannot repair Discord identity for legacy profile ${p.id}: the correct user ID is already assigned to another profile.`);
+            }
+            doc = await AetherProfile.findOneAndUpdate(
+                { _id: doc._id, guildId, legacyId: Number(p.id) },
+                { $set: { discordUserId } },
+                { new: true }
+            );
+            if (!doc) throw new Error(`Could not repair Discord identity for legacy profile ${p.id}.`);
+            console.warn(`[AETHER MIGRATION] Repaired Discord ID for legacy profile ${p.id}.`);
+        }
         profileByKey.set(String(p.license_key).toUpperCase(), doc);
         await upsertCentral('profile', doc._id, doc.toObject(), { guildId });
         await AetherLicenseKey.updateOne(

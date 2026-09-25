@@ -85,8 +85,11 @@ Read-only mode is the default and prints source counts without connecting to
 Mongo. Add `--apply` to perform the import. Imports are
 idempotent: source integer IDs are stored as `legacyId` and writes use
 `(guildId, legacyId)` keys. Existing Mongo documents are not overwritten or
-deleted. SQLite proof paths are retained as legacy metadata; new submissions
-use Discord URLs and proof metadata.
+deleted; for an already-imported profile, the migration only repairs its
+`discordUserId` when the authoritative SQLite value differs. Discord IDs are
+serialized as exact decimal strings so SQLite's integer snowflakes are not
+rounded by JavaScript. SQLite proof paths are retained as legacy metadata;
+new submissions use Discord URLs and proof metadata.
 
 For a deployment-time one-shot import, provide
 `AETHER_MIGRATION_DB_GZIP_BASE64` (the gzip-compressed SQLite file encoded as
