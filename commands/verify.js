@@ -18,8 +18,14 @@ const {
     EmbedBuilder,
     ActionRowBuilder,
     ButtonBuilder,
-    ButtonStyle
+    ButtonStyle,
+    AttachmentBuilder,
+    ModalBuilder,
+    TextInputBuilder,
+    TextInputStyle
 } = require('discord.js');
+const crypto = require('crypto');
+const captcha = require('../lib/captcha');
 
 const GuildConfig = require('../models/GuildConfig');
 
