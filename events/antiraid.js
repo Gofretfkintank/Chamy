@@ -70,9 +70,11 @@ module.exports = (client) => {
         } catch { /* yut */ }
     });
 
-    // --- Nuke hot path ---
+    // --- Nuke hot path + izin suistimali ---
     // Audit log girisi, silme/ban gibi eylemlerin KIM tarafindan yapildigini verir.
     client.on('guildAuditLogEntryCreate', async (entry, guild) => {
+        guards.onAuditEntry(entry, guild).catch(err =>
+            console.error('[ANTIRAID] guards:', err.message));
         try {
             const kind = DESTRUCTIVE[entry.action];
             if (!kind) return;
