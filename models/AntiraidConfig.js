@@ -25,6 +25,11 @@ const AntiraidConfigSchema = new mongoose.Schema({
     // Bildirim / kayit kanali (opsiyonel). Bos ise sadece konsola log.
     alertChannelId: { type: String, default: null },
 
+    // Gunluk Gemma ton taramasi (mesaj icerigi Google'a gider -> ayrica acilir).
+    toneScan: { type: Boolean, default: false },
+    // channelId -> son taranan mesaj id'si (sadece yeni mesajlar okunsun).
+    toneCursors: { type: Map, of: String, default: {} },
+
     updatedAt: { type: Date, default: Date.now },
 }, { collection: 'antiraid_configs' });
 
