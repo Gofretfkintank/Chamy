@@ -196,6 +196,7 @@ module.exports = {
                     { name: 'Nuke', value: `${cfg.nukeThreshold} actions / ${Math.round(cfg.nukeWindowMs / 1000)}s`, inline: true },
                     { name: 'Alert channel', value: cfg.alertChannelId ? `<#${cfg.alertChannelId}>` : '_console only_', inline: true },
                     { name: 'Whitelisted', value: `${cfg.whitelistUserIds.length} users, ${cfg.whitelistRoleIds.length} roles`, inline: true },
+                    { name: 'Tone scan', value: cfg.toneScan ? '🔎 Daily (03:00 TR)' : 'Off', inline: true },
                     { name: 'Missing perms', value: missing.length ? `⚠️ ${missing.join(', ')}` : '✅ none', inline: false },
                 );
             return interaction.reply({ embeds: [embed] });
