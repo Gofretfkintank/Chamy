@@ -199,38 +199,148 @@ module.exports = {
     },
 
     //--------------------------------------------------
-    // BUTTON HANDLER — verify_claim_<roleId>
+    // BUTTON HANDLER
+    //   verify_claim_<roleId>  -> captcha gorseli gonder
+    //   verify_new_<roleId>    -> yeni gorsel
+    //   verify_code_<roleId>   -> kodu girme modalini ac
     //--------------------------------------------------
 
     async buttonHandler(interaction) {
-        const roleId = interaction.customId.replace('verify_claim_', '');
-        const role   = interaction.guild.roles.cache.get(roleId);
+        const id = interaction.customId;
+        const roleId = id.replace(/^verify_(claim|new|code)_/, '');
+        const key = `${interaction.guildId}:${interaction.user.id}`;
 
-        if (!role) {
-            return interaction.reply({ content: '❌ Verification role no longer exists — contact an admin.', ephemeral: true });
+        if (id.startsWith('verify_code_')) {
+            const p = pending.get(key);
+            if (!p || p.expires < Date.now()) {
+                pending.delete(key);
+                return interaction.reply({ content: '⌛ That code expired. Press **Verify** again for a new one.', ephemeral: true });
+            }
+            const modal = new ModalBuilder()
+                .setCustomId(`verify_modal_${roleId}`)
+                .setTitle('Verification');
+            modal.addComponents(new ActionRowBuilder().addComponents(
+                new TextInputBuilder()
+                    .setCustomId('code')
+                    .setLabel(p.math ? 'Your answer' : 'Characters in the image')
+                    .setStyle(TextInputStyle.Short)
+                    .setMinLength(1)
+                    .setMaxLength(10)
+                    .setRequired(true),
+            ));
+            return interaction.showModal(modal);
         }
 
-        if (interaction.member.roles.cache.has(roleId)) {
-            return interaction.reply({ content: '✅ You\'re already verified!', ephemeral: true });
+        // claim / new: once rol ve durum kontrolleri.
+        const problem = checkRole(interaction, roleId);
+        if (problem) return interaction.reply({ content: problem, ephemeral: true });
+
+        const until = cooldown.get(key);
+        if (until && until > Date.now()) {
+            const s = Math.ceil((until - Date.now()) / 1000);
+            return interaction.reply({ content: `⏳ Too many wrong tries. Try again in **${s}s**.`, ephemeral: true });
         }
 
-        const me = interaction.guild.members.me;
-        if (role.position >= me.roles.highest.position) {
+        return sendChallenge(interaction, roleId, id.startsWith('verify_new_'));
+    },
+
+    //--------------------------------------------------
+    // MODAL HANDLER — verify_modal_<roleId>
+    //--------------------------------------------------
+
+    async modalHandler(interaction) {
+        const roleId = interaction.customId.replace('verify_modal_', '');
+        const key = `${interaction.guildId}:${interaction.user.id}`;
+        const p = pending.get(key);
+        if (!p || p.expires < Date.now()) {
+            pending.delete(key);
+            return interaction.reply({ content: '⌛ That code expired. Press **Verify** again for a new one.', ephemeral: true });
+        }
+
+        const answer = interaction.fields.getTextInputValue('code').replace(/\s+/g, '').toUpperCase();
+        if (answer !== p.code) {
+            p.tries++;
+            if (p.tries >= MAX_TRIES) {
+                pending.delete(key);
+                cooldown.set(key, Date.now() + COOLDOWN_MS);
+                return interaction.reply({ content: `❌ Wrong again. Too many tries — wait **${COOLDOWN_MS / 60000} minutes** and press Verify.`, ephemeral: true });
+            }
             return interaction.reply({
-                content: '❌ I can\'t hand out this role right now — my role needs to be moved above it. Contact an admin.',
-                ephemeral: true
+                content: `❌ Wrong code. **${MAX_TRIES - p.tries}** tries left — press **Enter code** again, or **New image** if it's hard to read.`,
+                ephemeral: true,
             });
         }
+
+        pending.delete(key);
+        const problem = checkRole(interaction, roleId);
+        if (problem) return interaction.reply({ content: problem, ephemeral: true });
 
         try {
-            await interaction.member.roles.add(role, 'Self-verify via /verify button');
+            await interaction.member.roles.add(roleId, 'Passed /verify captcha');
             return interaction.reply({
                 content: `✅ Verified! You now have access to **${interaction.guild.name}**.`,
-                ephemeral: true
+                ephemeral: true,
             });
         } catch (err) {
-            console.error('[VERIFY BUTTON]', err.message);
+            console.error('[VERIFY MODAL]', err.message);
             return interaction.reply({ content: '❌ Something went wrong assigning the role. Contact an admin.', ephemeral: true });
         }
     }
 };
+
+//--------------------------------------------------
+// CAPTCHA STATE
+//--------------------------------------------------
+
+const pending = new Map();   // `${guildId}:${userId}` -> { code, math, expires, tries }
+const cooldown = new Map();  // `${guildId}:${userId}` -> until
+const CODE_TTL = 5 * 60 * 1000;
+const MAX_TRIES = 3;
+const COOLDOWN_MS = 2 * 60 * 1000;
+
+setInterval(() => {
+    const now = Date.now();
+    for (const [k, p] of pending) if (p.expires < now) pending.delete(k);
+    for (const [k, t] of cooldown) if (t < now) cooldown.delete(k);
+}, 60_000).unref?.();
+
+function checkRole(interaction, roleId) {
+    const role = interaction.guild.roles.cache.get(roleId);
+    if (!role) return '❌ Verification role no longer exists — contact an admin.';
+    if (interaction.member.roles.cache.has(roleId)) return '✅ You\'re already verified!';
+    if (role.position >= interaction.guild.members.me.roles.highest.position) {
+        return '❌ I can\'t hand out this role right now — my role needs to be moved above it. Contact an admin.';
+    }
+    return null;
+}
+
+async function sendChallenge(interaction, roleId, isRefresh) {
+    const key = `${interaction.guildId}:${interaction.user.id}`;
+    const row = new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId(`verify_code_${roleId}`).setLabel('Enter code').setEmoji('⌨️').setStyle(ButtonStyle.Primary),
+        new ButtonBuilder().setCustomId(`verify_new_${roleId}`).setLabel('New image').setEmoji('🔄').setStyle(ButtonStyle.Secondary),
+    );
+
+    let payload;
+    try {
+        const code = captcha.newCode();
+        const png = captcha.render(code);
+        pending.set(key, { code, math: false, expires: Date.now() + CODE_TTL, tries: 0 });
+        payload = {
+            content: 'Type the characters you see in the image (not case-sensitive). The code expires in 5 minutes.',
+            files: [new AttachmentBuilder(png, { name: 'captcha.png' })],
+            components: [row],
+        };
+    } catch {
+        // Gorsel uretilemedi: matematik sorusuna dus.
+        const a = crypto.randomInt(3, 20), b = crypto.randomInt(3, 20);
+        pending.set(key, { code: String(a + b), math: true, expires: Date.now() + CODE_TTL, tries: 0 });
+        payload = {
+            content: `What is **${a} + ${b}**? Press **Enter code** and type the answer. Expires in 5 minutes.`,
+            components: [row],
+        };
+    }
+
+    if (isRefresh) return interaction.update({ ...payload, attachments: [] });
+    return interaction.reply({ ...payload, ephemeral: true });
+}
