@@ -7,7 +7,7 @@
 const mongoose = require('mongoose');
 
 const GlobalBanSchema = new mongoose.Schema({
-    userId:   { type: String, required: true, unique: true, index: true },
+    userId:   { type: String, required: true, unique: true },
     reason:   { type: String, default: 'Raid activity' },
     // Kac ayri sunucuda raide karisti (otomatik yukselir; esik gecince global olur).
     hitGuilds: { type: [String], default: [] },
