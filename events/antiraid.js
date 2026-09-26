@@ -122,6 +122,8 @@ module.exports = (client) => {
     }
 
     client.once('ready', () => {
+        // Raid sirasinda restart olduysa acik kalan kilitleri tekrar zamanla.
+        lockdown.resume(client).catch(() => {});
         // Snapshot: acilistan 1 dk sonra, sonra saatte bir.
         setTimeout(snapshotEnabledGuilds, 60_000);
         setInterval(snapshotEnabledGuilds, 60 * 60 * 1000);
