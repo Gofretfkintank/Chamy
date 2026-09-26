@@ -83,6 +83,7 @@ const { seedLegacyGuild, LEGACY_GUILD_ID } = require('./lib/legacySeed');
 const client = new Client({
     intents: [
         GatewayIntentBits.Guilds,
+        GatewayIntentBits.GuildModeration,
         GatewayIntentBits.GuildMembers,
         GatewayIntentBits.GuildPresences,
         GatewayIntentBits.GuildMessages,
