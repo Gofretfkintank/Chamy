@@ -51,6 +51,11 @@ module.exports = (client) => {
     // --- Mesaj: spam dedektoru + trust sayaci ---
     client.on('messageCreate', async (message) => {
         if (!message.guild) return;
+        if (message.webhookId) {
+            guards.onWebhookMessage(message).catch(err =>
+                console.error('[ANTIRAID] webhook:', err.message));
+            return;
+        }
         spam.onMessage(message).catch(err =>
             console.error('[ANTIRAID] spam:', err.message));
         try {
