@@ -698,10 +698,21 @@ client.on('interactionCreate', async interaction => {
     // VERIFY BUTTON SYSTEM
     //--------------------------
 
-    else if (interaction.isButton() && interaction.customId.startsWith('verify_claim_')) {
+    else if (interaction.isButton() && /^verify_(claim|new|code)_/.test(interaction.customId)) {
         const command = client.commands.get('verify');
         if (command && command.buttonHandler) {
             await command.buttonHandler(interaction);
+        }
+    }
+
+    //--------------------------
+    // VERIFY CAPTCHA MODAL
+    //--------------------------
+
+    else if (interaction.isModalSubmit() && interaction.customId.startsWith('verify_modal_')) {
+        const command = client.commands.get('verify');
+        if (command && command.modalHandler) {
+            await command.modalHandler(interaction);
         }
     }
 
