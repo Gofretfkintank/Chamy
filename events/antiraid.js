@@ -1,16 +1,17 @@
 // events/antiraid.js
-// Discord olaylarini antiraid motoruna baglar. Iki hot path:
-//   - guildMemberAdd            -> join-raid penceresi
+// Discord olaylarini antiraid motoruna ve trust sistemine baglar. Hot path'ler:
+//   - guildMemberAdd            -> join-raid penceresi (+ global ban)
+//   - messageCreate             -> mesaj spami + trust etkilesim sayaci
+//   - messageReactionAdd        -> trust etkilesim sayaci
 //   - guildAuditLogEntryCreate  -> nuke (kanal/rol silme, toplu ban) + fail tespiti
-//
-// Ayrica global-ban: motor kapali olsa bile, kesin raid hesaplari Chamy'nin
-// oldugu HER sunucuda girer girmez atilir.
 
 const { AuditLogEvent, PermissionsBitField } = require('discord.js');
 const engine = require('../lib/antiraid/engine');
 const spam = require('../lib/antiraid/spam');
 const configStore = require('../lib/antiraid/configStore');
 const { takeSnapshot } = require('../lib/antiraid/snapshot');
+const trustCollector = require('../lib/trust/collector');
+const { runToneScan } = require('../lib/trust/toneScan');
 
 // Nuke sayilan audit log aksiyonlari -> okunabilir etiket.
 const DESTRUCTIVE = {
@@ -21,6 +22,9 @@ const DESTRUCTIVE = {
     [AuditLogEvent.MemberKick]: 'kick',
     [AuditLogEvent.WebhookCreate]: 'webhook create',
 };
+
+// Ton taramasi her gun bu UTC saatinde (00 UTC = 03:00 Istanbul).
+const TONE_SCAN_UTC_HOUR = 0;
 
 module.exports = (client) => {
     // --- Join hot path + global ban ---
@@ -44,15 +48,30 @@ module.exports = (client) => {
         }
     });
 
-    // --- Mesaj spami hot path (xxx/scam link, calinmis hesap, sel, koordineli) ---
-    client.on('messageCreate', (message) => {
+    // --- Mesaj: spam dedektoru + trust sayaci ---
+    client.on('messageCreate', async (message) => {
+        if (!message.guild) return;
         spam.onMessage(message).catch(err =>
             console.error('[ANTIRAID] spam:', err.message));
+        try {
+            // Trust sadece korumasi acik sunucularda sayilir.
+            const cfg = await configStore.get(message.guild.id);
+            if (cfg.enabled) trustCollector.recordMessage(message);
+        } catch { /* yut */ }
+    });
+
+    // --- Tepki: trust sayaci ---
+    client.on('messageReactionAdd', async (reaction, user) => {
+        try {
+            const guild = reaction.message?.guild;
+            if (!guild) return;
+            const cfg = await configStore.get(guild.id);
+            if (cfg.enabled) trustCollector.recordReaction(reaction, user);
+        } catch { /* yut */ }
     });
 
     // --- Nuke hot path ---
     // Audit log girisi, silme/ban gibi eylemlerin KIM tarafindan yapildigini verir.
-    // channelDelete/roleDelete event'lerinin aksine fail id'si burada var.
     client.on('guildAuditLogEntryCreate', async (entry, guild) => {
         try {
             const kind = DESTRUCTIVE[entry.action];
@@ -65,8 +84,7 @@ module.exports = (client) => {
         }
     });
 
-    // --- Periyodik snapshot: korumasi acik sunucularin yapisini saatte bir kaydet ---
-    // Restore icin guncel bir snapshot her zaman hazir olsun.
+    // --- Periyodik isler ---
     async function snapshotEnabledGuilds() {
         for (const guild of client.guilds.cache.values()) {
             try {
@@ -75,9 +93,32 @@ module.exports = (client) => {
             } catch { /* yut */ }
         }
     }
+
+    let lastToneScanDay = null;
+    let toneScanRunning = false;
+    async function maybeRunDaily() {
+        const now = new Date();
+        const day = now.toISOString().slice(0, 10);
+        if (now.getUTCHours() !== TONE_SCAN_UTC_HOUR || lastToneScanDay === day || toneScanRunning) return;
+        lastToneScanDay = day;
+        toneScanRunning = true;
+        try {
+            await trustCollector.trimDays();
+            await runToneScan(client);
+        } catch (err) {
+            console.error('[TRUST] daily job failed:', err.message);
+        } finally {
+            toneScanRunning = false;
+        }
+    }
+
     client.once('ready', () => {
-        // Acilisdan 1 dk sonra ilk snapshot, sonra saatte bir.
+        // Snapshot: acilistan 1 dk sonra, sonra saatte bir.
         setTimeout(snapshotEnabledGuilds, 60_000);
         setInterval(snapshotEnabledGuilds, 60 * 60 * 1000);
+        // Trust sayaclarini dakikada bir Mongo'ya yaz.
+        setInterval(() => trustCollector.flush(), 60_000);
+        // Gunluk ton taramasi (saat kontrolu 10 dk'da bir).
+        setInterval(maybeRunDaily, 10 * 60 * 1000);
     });
 };
