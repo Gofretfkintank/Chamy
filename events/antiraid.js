@@ -8,6 +8,7 @@
 
 const { AuditLogEvent, PermissionsBitField } = require('discord.js');
 const engine = require('../lib/antiraid/engine');
+const spam = require('../lib/antiraid/spam');
 const configStore = require('../lib/antiraid/configStore');
 const { takeSnapshot } = require('../lib/antiraid/snapshot');
 
