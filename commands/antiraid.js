@@ -43,6 +43,12 @@ module.exports = {
             .addIntegerOption(o => o.setName('joins').setDescription('Joins in 10s that count as a raid (default 6)').setMinValue(3).setMaxValue(50))
             .addIntegerOption(o => o.setName('nuke').setDescription('Destructive actions in 10s that count as a nuke (default 4)').setMinValue(2).setMaxValue(20)))
         .addSubcommand(s => s
+            .setName('tonescan').setDescription('Daily AI scan of new messages for raid recon / harassment')
+            .addBooleanOption(o => o.setName('enabled').setDescription('Turn the daily scan on or off').setRequired(true)))
+        .addSubcommand(s => s
+            .setName('trust').setDescription("Show a member's trust score")
+            .addUserOption(o => o.setName('user').setDescription('Member').setRequired(true)))
+        .addSubcommand(s => s
             .setName('globalban').setDescription('Bot owner only: add a known raid account to the global ban list')
             .addStringOption(o => o.setName('user_id').setDescription('User ID').setRequired(true))
             .addStringOption(o => o.setName('reason').setDescription('Reason'))),
