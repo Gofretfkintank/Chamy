@@ -155,6 +155,7 @@ function missingPerms(guild) {
         'Moderate Members': PermissionsBitField.Flags.ModerateMembers,
         'Manage Roles': PermissionsBitField.Flags.ManageRoles,
         'Manage Channels': PermissionsBitField.Flags.ManageChannels,
+        'Manage Messages': PermissionsBitField.Flags.ManageMessages,
         'View Audit Log': PermissionsBitField.Flags.ViewAuditLog,
     };
     return Object.entries(need).filter(([, flag]) => !me?.permissions.has(flag)).map(([n]) => n);
