@@ -30,6 +30,11 @@ const AntiraidConfigSchema = new mongoose.Schema({
     // channelId -> son taranan mesaj id'si (sadece yeni mesajlar okunsun).
     toneCursors: { type: Map, of: String, default: {} },
 
+    // Lockdown durumu (raid sirasinda restart olursa kaldigi yerden devam).
+    lockdownUntil: { type: Date, default: null },
+    lockdownPrevLevel: { type: Number, default: null },
+    lockdownInvitesWerePaused: { type: Boolean, default: null },
+
     updatedAt: { type: Date, default: Date.now },
 }, { collection: 'antiraid_configs' });
 
