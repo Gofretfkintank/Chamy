@@ -21,7 +21,9 @@ module.exports = {
                 '**`/race-guess`** — Predict the race winner before results drop.',
                 '**`/racetime`** — Convert race time (6 PM PKT) to any local timezone.',
                 '**`/track`** — Get detailed info about any motorsport circuit.',
+                '**`/rating`** — View a driver\'s Mad+ Rating and history.',
                 '**`/leaderboard`** — View driver rankings based on overall rating.',
+                '**`/wr`** — Sync or show world records for a track (`sync`, `show`).',
                 '**`/stats`** — Show racing statistics for yourself or another driver.',
                 '**`/vs`** — Compare two drivers head to head.',
             ],
@@ -31,6 +33,7 @@ module.exports = {
                 '**`/coinboard`** — See the richest 10 drivers on the server.',
                 '**`/shop`** — Browse and purchase items from the OM Economy Shop.',
                 '**`/sponsor`** — View sponsor offers and sign deals for coins.',
+                '**`/pay`** — Send coins to another driver.',
                 '**`/give-coins`** — *(Admin)* Add, remove, or set coins for a driver.',
             ],
 
@@ -57,6 +60,21 @@ module.exports = {
                 '**`/report`** — Report a user to the staff team.',
             ],
 
+            '🛡️ Raid Protection': [
+                '**`/antiraid on`** — Enable Chamy\'s raid protection in this server.',
+                '**`/antiraid off`** — Disable raid protection.',
+                '**`/antiraid status`** — Show current settings and missing permissions.',
+                '**`/antiraid snapshot`** — Save the server structure now (for nuke restore).',
+                '**`/antiraid restore`** — Restore channels/roles from the latest snapshot.',
+                '**`/antiraid unlock`** — End an active raid lockdown early.',
+                '**`/antiraid alertchannel`** — Set where raid alerts are posted.',
+                '**`/antiraid whitelist`** — Exempt a user or role from all raid actions.',
+                '**`/antiraid sensitivity`** — Tune join-raid and nuke thresholds.',
+                '**`/antiraid tonescan`** — Toggle the daily AI scan for raid recon / harassment.',
+                '**`/antiraid trust`** — Show a member\'s trust score and breakdown.',
+                '**`/verify`** — Set up the captcha verification gate in this channel.',
+            ],
+
             '🛠️ Moderation': [
                 '**`/ban`** — Ban a member from the server.',
                 '**`/unban`** — Unban a user by their ID.',
@@ -68,8 +86,8 @@ module.exports = {
                 '**`/warn`** — Issue a warning to a member.',
                 '**`/warnings`** — View all active warnings for a member.',
                 '**`/clear-warning`** — Clear all warnings for a member.',
-                '**`/jail`** — Quarantine a user (restrict to jail channel).',
-                '**`/unjail`** — Release a user from quarantine.',
+                '**`/purge`** — Bulk-delete recent messages in a channel.',
+                '**`/quarantina`** / **`/unquarantina`** — Quarantine/release a user (restrict to jail channel).',
                 '**`/setupjail`** — Apply the full jail system to the server.',
                 '**`/lockchannel`** — Lock a channel from all non-staff roles.',
                 '**`/unlockchannel`** — Unlock a channel and reset role restrictions.',
@@ -106,6 +124,7 @@ module.exports = {
             '⚙️ System & Utility': [
                 '**`/help`** — Display this command guide.',
                 '**`/ping`** — Check the bot\'s current latency.',
+                '**`/config`** — *(Admin)* Configure per-server channels, roles and staff.',
                 '**`/maintenance`** — *(Admin)* Toggle bot maintenance mode.',
                 '**`/setprefix`** — *(Admin)* Change the bot prefix for this server.',
             ],
@@ -130,15 +149,15 @@ module.exports = {
 
         const mainEmbed = new EmbedBuilder()
             .setColor(0x00D2FF)
-            .setTitle('Olzhasstik Motorsports | Help Center')
+            .setTitle('Chamy | Help Center')
             .setDescription(
-                "Welcome to the official command manual. Select a category from the menu below to explore all available tools for our racing league and server management."
+                "Welcome to the command manual. Select a category from the menu below to explore all available tools — racing, economy, raid protection, moderation and more."
             )
             .addFields(
                 { name: '📁 Categories', value: Object.keys(categories).join('\n'), inline: true },
                 { name: 'System Status', value: '🟢 All systems operational', inline: true }
             )
-            .setFooter({ text: 'Olzhasstik Motorsports | System Manual' })
+            .setFooter({ text: 'Chamy | System Manual' })
             .setTimestamp();
 
         const response = await interaction.reply({ embeds: [mainEmbed], components: [row] });
@@ -163,7 +182,7 @@ module.exports = {
                 .setColor(0x2f3136)
                 .setTitle(`${selected}`)
                 .setDescription(cmdList)
-                .setFooter({ text: 'Olzhasstik Motorsports | Use /command to get started' })
+                .setFooter({ text: 'Chamy | Use /command to get started' })
                 .setTimestamp();
 
             await i.update({ embeds: [categoryEmbed] });
