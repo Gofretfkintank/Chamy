@@ -32,6 +32,7 @@ module.exports = {
         .addSubcommand(s => s.setName('status').setDescription('Show current antiraid settings'))
         .addSubcommand(s => s.setName('snapshot').setDescription('Save the server structure now (for nuke restore)'))
         .addSubcommand(s => s.setName('restore').setDescription('Restore channels/roles from the latest snapshot'))
+        .addSubcommand(s => s.setName('unlock').setDescription('End a raid lockdown now (re-open invites, restore verification level)'))
         .addSubcommand(s => s
             .setName('alertchannel').setDescription('Where raid alerts are posted')
             .addChannelOption(o => o.setName('channel').setDescription('Alert channel').setRequired(true)))
