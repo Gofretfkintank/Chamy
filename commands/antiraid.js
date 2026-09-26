@@ -10,6 +10,7 @@ const GlobalBan = require('../models/GlobalBan');
 const configStore = require('../lib/antiraid/configStore');
 const { takeSnapshot } = require('../lib/antiraid/snapshot');
 const { restoreLatest } = require('../lib/antiraid/restore');
+const { trustOf } = require('../lib/trust/score');
 const perms = require('../lib/perms');
 
 async function upsert(guildId, patch) {
