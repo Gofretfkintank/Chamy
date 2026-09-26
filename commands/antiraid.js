@@ -218,6 +218,9 @@ function missingPerms(guild) {
         'Manage Roles': PermissionsBitField.Flags.ManageRoles,
         'Manage Channels': PermissionsBitField.Flags.ManageChannels,
         'Manage Messages': PermissionsBitField.Flags.ManageMessages,
+        'Manage Server (lockdown, bulk ban)': PermissionsBitField.Flags.ManageGuild,
+        'Manage Webhooks': PermissionsBitField.Flags.ManageWebhooks,
+        'Kick Members (rogue bots)': PermissionsBitField.Flags.KickMembers,
         'View Audit Log': PermissionsBitField.Flags.ViewAuditLog,
     };
     return Object.entries(need).filter(([, flag]) => !me?.permissions.has(flag)).map(([n]) => n);
