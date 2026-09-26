@@ -12,6 +12,8 @@ const configStore = require('../lib/antiraid/configStore');
 const { takeSnapshot } = require('../lib/antiraid/snapshot');
 const trustCollector = require('../lib/trust/collector');
 const { runToneScan } = require('../lib/trust/toneScan');
+const guards = require('../lib/antiraid/guards');
+const lockdown = require('../lib/antiraid/lockdown');
 
 // Nuke sayilan audit log aksiyonlari -> okunabilir etiket.
 const DESTRUCTIVE = {
