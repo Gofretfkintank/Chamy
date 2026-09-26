@@ -42,9 +42,10 @@ function buildVerifyEmbed(guildName) {
         .setTitle('🔐 Server Verification')
         .setDescription(
             `Welcome to **${guildName}**!\n\n` +
-            `Click **Verify** below to confirm you're human and unlock access to the rest of the server.`
+            `Click **Verify** below, then type the code from the image to confirm you're human ` +
+            `and unlock access to the rest of the server.`
         )
-        .setFooter({ text: 'Olzhasstik Motorsports — Verification System' })
+        .setFooter({ text: 'Chamy — Verification' })
         .setTimestamp();
 }
 
