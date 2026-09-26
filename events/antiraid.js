@@ -43,6 +43,12 @@ module.exports = (client) => {
         }
     });
 
+    // --- Mesaj spami hot path (xxx/scam link, calinmis hesap, sel, koordineli) ---
+    client.on('messageCreate', (message) => {
+        spam.onMessage(message).catch(err =>
+            console.error('[ANTIRAID] spam:', err.message));
+    });
+
     // --- Nuke hot path ---
     // Audit log girisi, silme/ban gibi eylemlerin KIM tarafindan yapildigini verir.
     // channelDelete/roleDelete event'lerinin aksine fail id'si burada var.
