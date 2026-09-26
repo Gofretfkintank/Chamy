@@ -137,6 +137,11 @@ module.exports = {
             return interaction.editReply(`⏪ Restored **${r.channels}** channels and **${r.roles}** roles from the ${r.when} snapshot.`);
         }
 
+        if (sub === 'unlock') {
+            const ok = await require('../lib/antiraid/lockdown').release(interaction.guild, `by ${interaction.user.tag}`);
+            return interaction.reply(ok ? '🔓 Lockdown ended. Invites and verification level restored.' : 'There is no active lockdown.');
+        }
+
         if (sub === 'tonescan') {
             const on = interaction.options.getBoolean('enabled');
             const cfg = await configStore.get(guildId);
