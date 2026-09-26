@@ -5,7 +5,7 @@
 const mongoose = require('mongoose');
 
 const AntiraidConfigSchema = new mongoose.Schema({
-    guildId: { type: String, required: true, unique: true, index: true },
+    guildId: { type: String, required: true, unique: true },
     enabled: { type: Boolean, default: false },
 
     // Katilim dalgasi (join raid) esikleri.
