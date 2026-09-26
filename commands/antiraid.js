@@ -135,6 +135,54 @@ module.exports = {
             return interaction.editReply(`⏪ Restored **${r.channels}** channels and **${r.roles}** roles from the ${r.when} snapshot.`);
         }
 
+        if (sub === 'tonescan') {
+            const on = interaction.options.getBoolean('enabled');
+            const cfg = await configStore.get(guildId);
+            if (on && !cfg.enabled) {
+                return interaction.reply({ content: '❌ Turn on raid protection first: `/antiraid on`.', ephemeral: true });
+            }
+            await upsert(guildId, { toneScan: on });
+            return interaction.reply(on
+                ? '🔎 Daily tone scan **enabled**. Once a day Chamy reads only the NEW messages since the last scan, ' +
+                  'with usernames replaced by pseudonyms, and flags raid reconnaissance (asking who is admin, when mods are offline, etc.) ' +
+                  'or targeted harassment. Criticism of mods, jokes and trolling are not flagged. Flags only lower the trust score; nobody is banned for them.'
+                : '🔎 Daily tone scan **disabled**.');
+        }
+
+        if (sub === 'trust') {
+            const user = interaction.options.getUser('user');
+            const member = await interaction.guild.members.fetch(user.id).catch(() => null);
+            if (!member) return interaction.reply({ content: '❌ That user is not in this server.', ephemeral: true });
+            const { score, parts, flags } = await trustOf(member);
+            const label = score >= 70 ? '🟢 Trusted' : score >= 40 ? '🟡 Normal' : score >= 20 ? '🟠 Low' : '🔴 Very low';
+            const fmt = v => (v >= 0 ? '+' : '') + Math.round(v);
+            const breakdown = parts.staff
+                ? 'Staff / owner — always trusted.'
+                : [
+                    `Time in server ${fmt(parts.tenure)}`,
+                    `Account age ${fmt(parts.account)}`,
+                    `Activity ${fmt(parts.activity)}`,
+                    `Consistency ${fmt(parts.consistency)}`,
+                    `Social ties ${fmt(parts.social)}`,
+                    `Mod rapport ${fmt(parts.modBond)}`,
+                    `Reactions ${fmt(parts.reactions)}`,
+                    parts.penalty ? `Tone flags ${fmt(parts.penalty)}` : null,
+                ].filter(Boolean).join('\n');
+            const embed = new EmbedBuilder()
+                .setColor(score >= 70 ? 0x2ecc71 : score >= 40 ? 0xf1c40f : score >= 20 ? 0xe67e22 : 0xe74c3c)
+                .setTitle(`Trust: ${user.username}`)
+                .setDescription(`**${score}/100** · ${label}`)
+                .addFields({ name: 'Breakdown', value: breakdown });
+            if (flags.length) {
+                embed.addFields({
+                    name: 'Recent tone flags (30 days)',
+                    value: flags.slice(-5).map(f =>
+                        `• ${f.type} — ${f.note || 'no note'} (<t:${Math.floor(new Date(f.at).getTime() / 1000)}:R>)`).join('\n'),
+                });
+            }
+            return interaction.reply({ embeds: [embed], ephemeral: true });
+        }
+
         if (sub === 'status') {
             const cfg = await configStore.get(guildId);
             const missing = missingPerms(interaction.guild);
